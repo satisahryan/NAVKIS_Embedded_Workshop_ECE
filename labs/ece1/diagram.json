@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "author": "Dr. Sathisha R N - NAVKIS Embedded Systems Workshop",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {
+        "env": "micropython-20260406-v1.28.0"
+      }
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": 160,
+      "left": -200,
+      "attrs": {
+        "channelNames": "TX"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:TX",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "esp:17",
+      "esp:16",
+      "green",
+      []
+    ],
+    [
+      "esp:17",
+      "logic1:D0",
+      "green",
+      []
+    ],
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "author": "Dr. Sathisha R N - NAVKIS Embedded Systems Workshop",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 28,
+      "left": 140,
+      "rotate": 0,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "lamp",
+      "top": -40,
+      "left": 230,
+      "attrs": {
+        "color": "white"
+      }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr1",
+      "top": 160,
+      "left": -260,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pir-motion-sensor",
+      "id": "pir1",
+      "top": -130,
+      "left": -150,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "esp:TX",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "esp:26",
+      "r1:1",
+      "orange",
+      []
+    ],
+    [
+      "r1:2",
+      "lamp:A",
+      "orange",
+      []
+    ],
+    [
+      "lamp:C",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "ldr1:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "ldr1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "ldr1:AO",
+      "esp:35",
+      "violet",
+      []
+    ],
+    [
+      "pir1:VCC",
+      "esp:5V",
+      "red",
+      []
+    ],
+    [
+      "pir1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pir1:OUT",
+      "esp:27",
+      "orange",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

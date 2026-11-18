@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Instructor run-sheet — From Code to Silicon</title>
+<style>:root{
+  --bg:#0b1220; --bg2:#111a2e; --card:#16213a; --line:#25335a;
+  --ink:#e8eefc; --mute:#9fb0d3; --teal:#2ee6c5; --amber:#ffb547; --rose:#ff6b8a; --blue:#6aa8ff; --green:#7be36b;
+  --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans", Arial, sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55}
+a{color:var(--teal)}
+code,pre{font-family:var(--mono)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;background:rgba(11,18,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:800;letter-spacing:.3px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand span{color:var(--teal)}
+.nav{display:flex;gap:4px;overflow-x:auto;margin-left:auto}
+.nav a{color:var(--mute);text-decoration:none;padding:6px 10px;border-radius:8px;font-size:14px;white-space:nowrap}
+.nav a:hover,.nav a.on{background:var(--card);color:var(--ink)}
+/* hero */
+.hero{padding:56px 0 30px;background:
+  radial-gradient(900px 300px at 80% -10%, rgba(46,230,197,.18), transparent 60%),
+  radial-gradient(700px 300px at 0% 0%, rgba(106,168,255,.15), transparent 60%)}
+.kicker{color:var(--amber);font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:13px}
+h1{font-size:clamp(32px,5vw,54px);line-height:1.08;margin:10px 0}
+h1 .grad{background:linear-gradient(90deg,var(--teal),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:26px;margin:38px 0 12px}
+h3{margin:22px 0 8px}
+.lead{color:var(--mute);font-size:18px;max-width:760px}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.chip{background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:999px;font-size:14px;color:var(--ink)}
+/* cards */
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+a.card{text-decoration:none;color:var(--ink);transition:transform .15s,border-color .15s}
+a.card:hover{transform:translateY(-3px);border-color:var(--teal)}
+.card .ico{font-size:28px}
+.card h3{margin:8px 0 4px}
+.card p{margin:0;color:var(--mute);font-size:15px}
+/* table */
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:15px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--amber);font-weight:700}
+tr.brk td{color:var(--mute);font-style:italic}
+/* code */
+.codebox{position:relative;margin:12px 0}
+.codebox .bar{display:flex;align-items:center;gap:8px;background:#0a1020;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;padding:6px 10px;font-size:13px;color:var(--mute)}
+.codebox .bar b{color:var(--ink);font-family:var(--mono);font-weight:600}
+.codebox pre{margin:0;background:#070d1a;border:1px solid var(--line);border-radius:0 0 10px 10px;padding:14px;overflow:auto;max-height:520px;font-size:13.5px;line-height:1.5}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:#05221c;border:0;border-radius:9px;padding:9px 14px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:4px 10px;font-size:12.5px}
+.btn.amber{background:var(--amber);color:#2b1a00}
+.bar .btn{margin-left:auto}
+/* syntax colours */
+.c-com{color:#6f86b5;font-style:italic}.c-kw{color:#ff9ac1}.c-str{color:#ffd479}.c-num{color:#9be9a8}.c-pp{color:#7dd3fc}.c-fn{color:#8ab4ff}
+/* callouts */
+.note{border-left:4px solid var(--blue);background:rgba(106,168,255,.08);padding:12px 14px;border-radius:0 10px 10px 0;margin:14px 0}
+.note.warn{border-color:var(--amber);background:rgba(255,181,71,.08)}
+.note.ok{border-color:var(--green);background:rgba(123,227,107,.08)}
+.try{border:1px dashed var(--teal);border-radius:12px;padding:14px 16px;margin:14px 0}
+.try h4{margin:0 0 6px;color:var(--teal)}
+details{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:10px 0}
+details summary{cursor:pointer;font-weight:700;color:var(--amber)}
+ol li,ul li{margin:4px 0}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(46,230,197,.15);color:var(--teal);margin-right:6px}
+.pill.deep{background:rgba(255,107,138,.15);color:var(--rose)}
+footer{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;color:var(--mute);font-size:14px}
+/* lab tabs */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0}
+.tabs button{background:var(--card);color:var(--mute);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:14px}
+.tabs button.on{color:#05221c;background:var(--teal);border-color:var(--teal)}
+.lab{display:none}.lab.on{display:block}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding:4px 0 4px 40px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:4px;width:26px;height:26px;border-radius:50%;background:var(--card);border:1px solid var(--teal);color:var(--teal);font-weight:800;font-size:13px;display:grid;place-items:center}
+.qr{background:#fff;padding:8px;border-radius:10px;display:inline-block;line-height:0}
+.qr img,.qr svg{width:150px;height:150px}
+@media print{
+  .topbar,.noprint{display:none!important}
+  body{background:#fff;color:#000}
+}
+.try.stretch{border-color:var(--amber);background:rgba(255,181,71,.06)}.try.stretch h4{color:var(--amber)}
+.try.stretch details{margin:4px 0 8px}.try.stretch summary{font-size:14px;color:var(--mute);cursor:pointer}
+.try.ece{border-color:var(--teal);background:rgba(46,230,197,.06)}.try.ece h4{color:var(--teal)}
+</style>
+<script>/* ==========================================================================
+   Workshop configuration - edit this file only; every page reads from it.
+   ========================================================================== */
+window.WS = {
+  title: "From Code to Silicon",
+  caption: "Blink. Sense. Connect.",
+  subtitle: "A hands-on embedded systems workshop with the ESP32",
+  host: "Skill Development Cell and Department of Electronics & Communication Engineering, NAVKIS College of Engineering, Hassan",
+  date: "Wednesday, 25 November 2026",
+  time: "10:30 AM – 4:00 PM",
+  speaker: "Dr. Sathisha R N",
+  speakerRole: "Assistant Professor, Dept. of Electronics & Telecommunication Engg., Siddaganga Institute of Technology, Tumakuru",
+  speakerEmail: "satisharyan@gmail.com",
+
+  /* Wokwi project links. Create each project once in your Wokwi account
+     (see README), then paste its share link here. Leave "" to show students
+     the copy-paste steps instead.                                           */
+  wokwi: {
+    lab1: "", lab2: "", lab3: "", lab4: "", lab5: "", lab6: "", challenge: "", lab7: "", lab8: "", ece1: "", ece2: "", ece3: ""
+  },
+
+  /* MQTT broker for Lab 5 + the live class dashboard.
+     The ESP32 uses TCP 1883; the browser dashboard uses secure WebSockets. */
+  mqtt: {
+    topicRoot: "navkis/ews2026",
+    brokers: {
+      hivemq: { name: "HiveMQ public", esp: "broker.hivemq.com", wss: "wss://broker.hivemq.com:8884/mqtt" },
+      emqx:   { name: "EMQX public",   esp: "broker.emqx.io",    wss: "wss://broker.emqx.io:8084/mqtt" },
+      mosquitto: { name: "Mosquitto test", esp: "test.mosquitto.org", wss: "wss://test.mosquitto.org:8081/mqtt" }
+    },
+    defaultBroker: "hivemq"
+  },
+
+  /* Optional: Google Apps Script web-app URL that records quiz scores
+     (code in README.md). Leave "" to keep scores on the student's screen only. */
+  quizScriptUrl: "",
+
+  /* Certificates (certificates.html) */
+  hodName: "Dr. Manjunath D V",
+  hodTitle: "Professor & HOD, Dept. of ECE",
+  /* Optional: the Gradebook tab published as CSV (File > Share > Publish to web > Gradebook > CSV).
+     Leave "" and upload the downloaded CSV file instead. */
+  gradebookCsvUrl: "",
+  feedbackFormUrl: ""
+};
+</script><script src="config.js"></script><script>/* Shared helpers: top navigation, copy buttons, light C++ highlighting, QR codes */
+(function () {
+  const PAGES = [
+    ["index.html", "Home"], ["slides.html", "Slides"], ["labs.html", "Labs"],
+    ["dashboard.html", "Live Dashboard"], ["quiz.html", "Quiz"], ["handout.html", "Handout"]
+  ];
+  const here = location.pathname.split("/").pop() || "index.html";
+
+  function topbar() {
+    const el = document.getElementById("topbar");
+    if (!el) return;
+    el.className = "topbar";
+    el.innerHTML = '<div class="wrap"><a class="brand" href="index.html">From Code to <span>Silicon</span></a><nav class="nav">' +
+      PAGES.map(([h, t]) => `<a href="${h}" class="${h === here ? "on" : ""}">${t}</a>`).join("") + "</nav></div>";
+  }
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  // Small, safe C/C++ highlighter (tokenises comments and strings first)
+  function highlightPy(src) {
+    const re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(\d+(?:\.\d+)?|0x[0-9a-fA-F]+)\b|\b(def|class|import|from|as|while|for|in|if|elif|else|return|True|False|None|try|except|global|async|await|not|and|or|pass|break|continue|with|lambda)\b|\b([A-Za-z_]\w*)(?=\s*\()/gm;
+    let out = "", last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const t = esc(m[0]);
+      out += m[1] ? `<span class="c-com">${t}</span>` : m[2] ? `<span class="c-str">${t}</span>` :
+             m[3] ? `<span class="c-num">${t}</span>` : m[4] ? `<span class="c-kw">${t}</span>` : `<span class="c-fn">${t}</span>`;
+      last = re.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+  function highlight(src) {
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])')|(^\s*#\s*\w+)|\b(\d+(?:\.\d+)?[fFLuU]*|0x[0-9a-fA-F]+)\b|\b(void|int|float|bool|char|const|unsigned|long|byte|String|if|else|while|for|return|true|false|volatile|static|struct|uint8_t|uint32_t|HIGH|LOW|INPUT|OUTPUT|INPUT_PULLUP|FALLING|RISING|CHANGE|NULL|IRAM_ATTR|QueueHandle_t)\b|\b([A-Za-z_]\w*)(?=\s*\()/gm;
+    let out = "", last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const t = esc(m[0]);
+      out += m[1] ? `<span class="c-com">${t}</span>` : m[2] ? `<span class="c-str">${t}</span>` :
+             m[3] ? `<span class="c-pp">${t}</span>` : m[4] ? `<span class="c-num">${t}</span>` :
+             m[5] ? `<span class="c-kw">${t}</span>` : `<span class="c-fn">${t}</span>`;
+      last = re.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+
+  function codeboxes() {
+    document.querySelectorAll("pre[data-hl]").forEach(pre => {
+      const lang = pre.dataset.hl; if (lang === "json") return; pre.innerHTML = lang === "py" ? highlightPy(pre.textContent) : highlight(pre.textContent);
+    });
+    document.querySelectorAll("[data-copy]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const pre = document.getElementById(btn.dataset.copy);
+        const text = pre.textContent;
+        const done = () => { const o = btn.textContent; btn.textContent = "Copied \u2713"; setTimeout(() => btn.textContent = o, 1400); };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done);
+        else { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); done(); }
+      });
+    });
+  }
+
+  // QR code for an absolute URL built from a page name relative to this site
+  const SITE_BASE = "https://satisahryan.github.io/NAVKIS_Embedded/";   // used when opened from a file
+  window.siteUrl = function (page) {
+    const base = location.protocol.startsWith("http") ? location.href : SITE_BASE;
+    return new URL(page || "", base).href.split("#")[0].replace(/index\.html$/, "");
+  };
+  window.qrInto = function (el, url, cell) {
+    if (!el || typeof qrcode === "undefined") return;
+    const q = qrcode(0, "M"); q.addData(url); q.make();
+    el.innerHTML = q.createSvgTag({ cellSize: cell || 4, margin: 2, scalable: true });
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    topbar(); codeboxes();
+    document.querySelectorAll("[data-qr]").forEach(el => qrInto(el, siteUrl(el.dataset.qr)));
+    document.querySelectorAll("[data-ws]").forEach(el => { const v = window.WS && WS[el.dataset.ws]; if (v) el.textContent = v; });
+  });
+  window.highlightCode = highlight;
+})();
+</script>
+<style>td:first-child{white-space:nowrap;font-family:var(--mono);color:var(--teal)}@media print{body{font-size:11px}}</style>
+</head><body>
+<main class="wrap">
+<section class="hero" style="padding-bottom:0"><div class="kicker">Instructor only · not linked from the student pages</div>
+<h1 style="font-size:40px">Run-sheet: NAVKIS ECE, 25 Nov 2026</h1>
+<p class="lead">10:30 AM – 4:00 PM · 60+ students · Wokwi ESP32 simulator · no hardware needed. <button class="btn small noprint" onclick="print()">Print</button></p></section>
+
+<h2>Before the day</h2>
+<table><tr><th>When</th><th>Task</th><th>Done</th></tr>
+<tr><td>By 18 Nov</td><td>Confirm with NAVKIS: the lab has 30+ PCs (one per pair) with Chrome or Edge, internet, and <b>wokwi.com</b>, <b>broker.hivemq.com</b> and <b>github.io</b> are not blocked; a projector with HDMI; a microphone for 60+ students.</td><td>☐</td></tr>
+<tr><td>By 18 Nov</td><td>Publish this site on GitHub Pages (README step 1). Test every page on your phone.</td><td>☐</td></tr>
+<tr><td>By 20 Nov</td><td>Create the 7 MicroPython Wokwi projects in your account and paste their links into <code>assets/config.js</code> (README step 2). Open each link in a private window and run it.</td><td>☐</td></tr>
+<tr><td>By 20 Nov</td><td>Run Lab 5 with your own name and check that it appears on the dashboard. Also test <b>Demo mode</b>.</td><td>☐</td></tr>
+<tr><td>By 22 Nov</td><td><b>Required:</b> set up the Google Sheet + Apps Script for quiz scores and the gradebook (README step 3). Print one test certificate from certificates.html on NAVKIS&rsquo;s printer if possible.</td><td>☐</td></tr>
+<tr><td>By 22 Nov</td><td>Optional: a Google Form for feedback, linked in <code>config.js</code>.</td><td>☐</td></tr>
+<tr><td>By 22 Nov</td><td>Ask the host to share the site link with students and to have them open <b>wokwi.com</b> once (and sign in with Google if they want to save their work).</td><td>☐</td></tr>
+<tr><td>Day − 1</td><td>Download the site ZIP to a pen drive. If the network fails, the slides still work offline (open <code>slides.html</code>). Charge your phone for a hotspot as a backup for the projector laptop.</td><td>☐</td></tr>
+<tr><td>Bring</td><td>Optional real ESP32 board, LED and USB cable to pass around during Session 1 (“this is what you are simulating”). A clicker.</td><td>☐</td></tr></table>
+
+<h2>Minute-by-minute</h2>
+<table><tr><th>Time</th><th>Activity</th><th>Slides / page</th><th>Watch out for</th></tr>
+<tr><td>10:00</td><td>Arrive, test the projector, open slides (F = fullscreen, N = notes) and the dashboard in a second tab</td><td>—</td><td>Screen resolution; zoom the browser to 100%</td></tr>
+<tr><td>10:30</td><td>Welcome, about me, plan for the day, everyone opens wokwi.com and the site</td><td>1–4</td><td>Seat in pairs: driver + navigator</td></tr>
+<tr><td>10:40</td><td>What embedded is, laptop vs ESP32, constraints</td><td>5–9</td><td>Ask questions to the room; keep it interactive</td></tr>
+<tr><td>11:00</td><td>MCU anatomy, <b>why the ESP32</b>, its <b>parts, pinout and pin rules</b>, <b>your NAVKIS courses</b> (2 slides) and project ideas, superloop, toolchain</td><td>10–19</td><td>Keep the pinout brief here; show slide 13 again while students wire Lab 1</td></tr>
+<tr><td>11:15</td><td><b>Live demo:</b> first blink in a blank Wokwi project</td><td>20</td><td>Go slowly; the room types along</td></tr>
+<tr><td>11:30</td><td>Tea</td><td></td><td></td></tr>
+<tr><td>11:45</td><td>GPIO, delay vs millis → <b>Lab 1</b></td><td>21–24</td><td>Pasting the diagram into the wrong tab</td></tr>
+<tr><td>12:10</td><td>Pull-ups, interrupts, bounce → <b>Lab 2</b></td><td>25–28</td><td>Explain why “pressed = LOW”</td></tr>
+<tr><td>12:35</td><td>ADC, PWM → <b>Lab 3</b></td><td>29–31</td><td>Clicking the pot to show its knob</td></tr>
+<tr><td>1:00</td><td>Lunch. Remind students to sign in and save.</td><td></td><td></td></tr>
+<tr><td>1:45</td><td>Buses, I²C → <b>Lab 4</b></td><td>32–35</td><td>Lab 4 needs the second file, ssd1306.py</td></tr>
+<tr><td>2:10</td><td>Device to cloud, MQTT → <b>Lab 5</b>. Put the dashboard on the projector, count devices, press “All ON”.</td><td>36–39</td><td>Students forgetting to change STUDENT; spaces in names</td></tr>
+<tr><td>2:45</td><td><b>Mini-challenge</b> in teams; fast finishers try Lab 6 and the amber &ldquo;Stretch tasks&rdquo; boxes</td><td>40–41 (Lab 6: 43, ECE experiments: 44)</td><td>Show the scoring; set a timer</td></tr>
+<tr><td>3:15</td><td>Score each team against the challenge rubric (out of 13) on paper: team members&rsquo; USNs + score</td><td>labs.html#challenge</td><td>Takes 5 min while teams finish</td></tr>
+<tr><td>3:20</td><td>Best two teams demo; reveal the reference solution</td><td>labs.html#challenge</td><td>—</td></tr>
+<tr><td>3:25</td><td>RTOS in 10 minutes, how real products are built, <b>ESP32 in research and use cases</b> (3 slides), <b>skill development</b>, careers, roadmap</td><td>42, 45–51</td><td>Skim the two research tables in 2 minutes: they are reading for project work. Keep careers to 5 minutes</td></tr>
+<tr><td>2:45</td><td>Before the challenge: on the dashboard press <b>Download list</b> (proof of Lab 5)</td><td>dashboard.html</td><td>Saves lab5_devices.csv</td></tr>
+<tr><td>3:45</td><td>Quiz on phones (students tick their labs on the quiz page), feedback. Then build the gradebook and print certificates; hand out at about 4:10</td><td>52–53</td><td>Close on time at 4:00</td></tr></table>
+
+<h2>Keeping the room even</h2>
+<ul><li>Every lab ends with an amber <b>Finished early? Stretch tasks</b> box (two tasks, with hints). Point fast pairs there rather than letting them start the next lab, so the class stays on the same slide.</li>
+<li><b>ECE experiments</b> (ECE 1 UART frames, ECE 2 sampling and aliasing, ECE 3 FIR vs IIR filters) are for fast pairs and for home. ECE 2 makes a good 3-minute live demo after Lab 3: set F_SIGNAL to 900 Hz and ask the class to predict what 1000 samples per second will show.</li>
+<li>Labs 2, 3, 4 and ECE 1 include Wokwi's <b>logic analyzer</b>. <b>Install PulseView on the projector laptop</b> (sigrok.org, free) and show one capture: switch bounce in Lab 2, or the I&sup2;C address 0x3C and ACK in Lab 4. Test it the day before.</li>
+<li>Labs 7 (deep sleep) and 8 (live weather from a web API) are <b>take-home</b>. Mention them on the roadmap slide (51) and in the handout checklist. They are not part of the grade.</li></ul>
+<h2>End of day: grades and certificates (printed on the spot)</h2>
+<ol class="steps"><li>Open the Google Sheet &rarr; <b>Workshop &rarr; Build / update gradebook</b>.</li>
+<li>Enter <b>Challenge /13</b> (from your paper scores) and <b>Participation /5</b>; correct <b>Labs /6</b> using <code>lab5_devices.csv</code> where needed.</li>
+<li>Download the Gradebook as CSV, open <a href="certificates.html">certificates.html</a>, load the CSV and press <b>Print all certificates</b> (A4, Landscape, Margins: None, Background graphics on).</li>
+<li>Sign and hand out. Allow about 10 minutes for printing 60 certificates: ask NAVKIS to keep a printer with enough A4 sheets (or certificate stock) ready near the lab.</li></ol>
+<h2>If something goes wrong</h2>
+<table><tr><th>Problem</th><th>Fix</th></tr>
+<tr><td>Wokwi slow</td><td>The labs use MicroPython, which starts without the build queue. If a student pastes the Arduino C version by mistake it will queue: send them back to the MicroPython steps on the lab page.</td></tr>
+<tr><td><code>ImportError: no module named ssd1306</code> (Lab 4)</td><td>The second file is missing: ▾ next to the tabs → New file → <code>ssd1306.py</code>, paste the driver from the lab page.</td></tr>
+<tr><td>Dashboard shows “Offline”</td><td>The dashboard listens to all three public brokers at once, and each student device uses the first broker that answers, so nothing needs changing. If the college firewall blocks WebSockets, use your phone hotspot for the projector laptop. Students' ESP32s still work, because they connect through Wokwi's cloud.</td></tr>
+<tr><td>No devices appear</td><td>Check the topic root in the sketch (<code>navkis/ews2026</code>) matches <code>config.js</code>. Ask one student to read their Serial Monitor aloud.</td></tr>
+<tr><td>Internet down completely</td><td>Slides work offline from the ZIP. Do the labs as a projector walkthrough, and give the site link for practice at home.</td></tr></table>
+<p style="color:var(--mute)">Slide numbers refer to the current deck (53 slides). Use the arrow keys, or type the number into the URL (<code>slides.html#20</code>).</p>
+</main></body></html>

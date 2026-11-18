@@ -1,0 +1,2908 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slides — From Code to Silicon</title><script>//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(row * cellSize, col * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+</script><script>/* Shared helpers: top navigation, copy buttons, light C++ highlighting, QR codes */
+(function () {
+  const PAGES = [
+    ["index.html", "Home"], ["slides.html", "Slides"], ["labs.html", "Labs"],
+    ["dashboard.html", "Live Dashboard"], ["quiz.html", "Quiz"], ["handout.html", "Handout"]
+  ];
+  const here = location.pathname.split("/").pop() || "index.html";
+
+  function topbar() {
+    const el = document.getElementById("topbar");
+    if (!el) return;
+    el.className = "topbar";
+    el.innerHTML = '<div class="wrap"><a class="brand" href="index.html">From Code to <span>Silicon</span></a><nav class="nav">' +
+      PAGES.map(([h, t]) => `<a href="${h}" class="${h === here ? "on" : ""}">${t}</a>`).join("") + "</nav></div>";
+  }
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  // Small, safe C/C++ highlighter (tokenises comments and strings first)
+  function highlightPy(src) {
+    const re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(\d+(?:\.\d+)?|0x[0-9a-fA-F]+)\b|\b(def|class|import|from|as|while|for|in|if|elif|else|return|True|False|None|try|except|global|async|await|not|and|or|pass|break|continue|with|lambda)\b|\b([A-Za-z_]\w*)(?=\s*\()/gm;
+    let out = "", last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const t = esc(m[0]);
+      out += m[1] ? `<span class="c-com">${t}</span>` : m[2] ? `<span class="c-str">${t}</span>` :
+             m[3] ? `<span class="c-num">${t}</span>` : m[4] ? `<span class="c-kw">${t}</span>` : `<span class="c-fn">${t}</span>`;
+      last = re.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+  function highlight(src) {
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])')|(^\s*#\s*\w+)|\b(\d+(?:\.\d+)?[fFLuU]*|0x[0-9a-fA-F]+)\b|\b(void|int|float|bool|char|const|unsigned|long|byte|String|if|else|while|for|return|true|false|volatile|static|struct|uint8_t|uint32_t|HIGH|LOW|INPUT|OUTPUT|INPUT_PULLUP|FALLING|RISING|CHANGE|NULL|IRAM_ATTR|QueueHandle_t)\b|\b([A-Za-z_]\w*)(?=\s*\()/gm;
+    let out = "", last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const t = esc(m[0]);
+      out += m[1] ? `<span class="c-com">${t}</span>` : m[2] ? `<span class="c-str">${t}</span>` :
+             m[3] ? `<span class="c-pp">${t}</span>` : m[4] ? `<span class="c-num">${t}</span>` :
+             m[5] ? `<span class="c-kw">${t}</span>` : `<span class="c-fn">${t}</span>`;
+      last = re.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+
+  function codeboxes() {
+    document.querySelectorAll("pre[data-hl]").forEach(pre => {
+      const lang = pre.dataset.hl; if (lang === "json") return; pre.innerHTML = lang === "py" ? highlightPy(pre.textContent) : highlight(pre.textContent);
+    });
+    document.querySelectorAll("[data-copy]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const pre = document.getElementById(btn.dataset.copy);
+        const text = pre.textContent;
+        const done = () => { const o = btn.textContent; btn.textContent = "Copied \u2713"; setTimeout(() => btn.textContent = o, 1400); };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done);
+        else { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); done(); }
+      });
+    });
+  }
+
+  // QR code for an absolute URL built from a page name relative to this site
+  const SITE_BASE = "https://satisahryan.github.io/NAVKIS_Embedded/";   // used when opened from a file
+  window.siteUrl = function (page) {
+    const base = location.protocol.startsWith("http") ? location.href : SITE_BASE;
+    return new URL(page || "", base).href.split("#")[0].replace(/index\.html$/, "");
+  };
+  window.qrInto = function (el, url, cell) {
+    if (!el || typeof qrcode === "undefined") return;
+    const q = qrcode(0, "M"); q.addData(url); q.make();
+    el.innerHTML = q.createSvgTag({ cellSize: cell || 4, margin: 2, scalable: true });
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    topbar(); codeboxes();
+    document.querySelectorAll("[data-qr]").forEach(el => qrInto(el, siteUrl(el.dataset.qr)));
+    document.querySelectorAll("[data-ws]").forEach(el => { const v = window.WS && WS[el.dataset.ws]; if (v) el.textContent = v; });
+  });
+  window.highlightCode = highlight;
+})();
+</script><style>
+:root{--bg:#0b1220;--card:#16213a;--line:#25335a;--ink:#e8eefc;--mute:#9fb0d3;--teal:#2ee6c5;--amber:#ffb547;--rose:#ff6b8a;--blue:#6aa8ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#05080f;overflow:hidden;font-family:"Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--ink)}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center center}
+.slide{position:absolute;inset:0;padding:56px 72px;background:radial-gradient(800px 300px at 90% -10%,rgba(46,230,197,.10),transparent 60%),var(--bg);opacity:0;visibility:hidden;transition:opacity .45s,transform .45s;transform:translateX(40px)}
+.slide.on{opacity:1;visibility:visible;transform:none}.slide.prev{transform:translateX(-40px)}
+h2{font-size:44px;margin:0 0 26px;letter-spacing:-.5px}
+.kick{color:var(--amber);font-weight:800;letter-spacing:2px;text-transform:uppercase;font-size:16px;margin-bottom:8px}
+.slide p{font-size:22px;line-height:1.45}.slide .big{font-size:26px;line-height:1.45}.sub{color:var(--mute);font-size:22px}.center{text-align:center}
+.hl{color:var(--teal);font-weight:700}
+ul,ol{font-size:24px;line-height:1.5;padding-left:28px}li{margin:8px 0}
+code{font-family:ui-monospace,Consolas,monospace;background:rgba(255,255,255,.07);padding:1px 6px;border-radius:6px;font-size:.9em}
+.two{display:grid;grid-template-columns:1.25fr 1fr;gap:40px;align-items:start}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;font-size:20px;color:var(--mute)}.tile b{display:block;color:var(--ink);font-size:23px;margin-bottom:6px}
+.labbox{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--teal);border-radius:16px;padding:24px}
+.lbl{color:var(--amber);font-weight:800;font-size:14px;letter-spacing:1.5px;text-transform:uppercase}.url{font-family:ui-monospace,Consolas,monospace;font-size:26px;color:var(--teal)}
+table{border-collapse:collapse;width:100%;font-size:22px}table.sm{font-size:18px}table.sm td,table.sm th{padding:7px 12px}th,td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--amber)}
+.agenda td:first-child{font-family:ui-monospace,Consolas,monospace;color:var(--teal);width:110px}.agenda tr.brk td{color:var(--mute);font-style:italic}
+.tagp{display:inline-block;background:rgba(46,230,197,.15);color:var(--teal);border-radius:999px;padding:2px 12px;font-size:16px;font-weight:700;margin-left:8px}.tagp.deep{background:rgba(255,107,138,.15);color:var(--rose)}
+pre.code{background:#070d1a;border:1px solid var(--line);border-radius:14px;padding:18px 20px;font-size:19px;line-height:1.5;margin:0;font-family:ui-monospace,Consolas,monospace}
+pre .c{color:#6f86b5;font-style:italic}pre .k{color:#ff9ac1}pre .f{color:#8ab4ff}
+.diag{width:100%;height:auto}.diag .bx{fill:#111a2e;stroke:#25335a;stroke-width:2}.diag .hlb{stroke:#2ee6c5}.diag .t1{fill:#e8eefc;font-size:26px;font-weight:800;text-anchor:middle}.diag .t2{fill:#9fb0d3;font-size:18px;text-anchor:middle}.diag text[text-anchor=start]{text-anchor:start}.diag text[text-anchor=end]{text-anchor:end}.diag .ln{stroke:#9fb0d3;stroke-width:2.5;fill:none}
+.icons{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;text-align:center;font-size:21px;font-weight:700}.icons span{display:block;font-size:56px}.icons small{display:block;color:var(--mute);font-weight:400;font-size:15px;margin-top:4px}
+.rules{margin-top:22px;background:rgba(255,107,138,.10);border:1px solid var(--rose);border-radius:14px;padding:14px 18px;font-size:20px}
+.slide .cta{font-size:24px;background:rgba(255,181,71,.12);border:1px solid var(--amber);border-radius:14px;padding:12px 16px}
+.flow{display:flex;gap:10px;margin:30px 0}.flow div{flex:1;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--teal);border-radius:14px;padding:16px;font-size:20px}.flow b{display:block}.flow small{color:var(--mute);font-size:15px}
+.road{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:40px}.road div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:30px 22px 30px 80px;position:relative;font-size:26px;min-height:150px}.road span{position:absolute;left:20px;top:30px;width:40px;height:40px;border-radius:50%;background:var(--teal);color:#05221c;font-weight:900;display:grid;place-items:center}.road small{display:block;color:var(--mute);font-size:19px;margin-top:6px}
+.section{display:flex;flex-direction:column;justify-content:center;background:radial-gradient(900px 400px at 20% 50%,rgba(46,230,197,.14),transparent 60%),var(--bg)}
+.secno{font-size:120px;font-weight:900;color:transparent;-webkit-text-stroke:2px var(--teal);line-height:1}.sect{font-size:68px;margin:10px 0}
+.title-wrap{position:absolute;left:80px;top:110px;width:760px}.hero{font-size:92px;line-height:1;margin:14px 0}.grad{background:linear-gradient(90deg,var(--teal),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
+.slide .tag{font-size:34px;color:var(--amber);font-weight:800;margin:0 0 40px}.byline{font-size:21px;color:var(--mute);line-height:1.5}.byline b{color:var(--ink)}.date{margin-top:22px;font-size:20px;color:var(--teal);font-weight:700}
+.chipart{position:absolute;right:70px;top:170px;width:380px}.pulse{animation:pulse 1.6s infinite}@keyframes pulse{50%{opacity:.2}}
+.glow{filter:drop-shadow(0 0 10px #ff6b8a);animation:pulse 1s infinite}
+.qrbox{background:#fff;border-radius:12px;padding:10px;display:inline-block;line-height:0}.qrbox svg{width:190px;height:190px}
+.frag{opacity:0;transform:translateY(12px);transition:opacity .4s,transform .4s}.frag.vis{opacity:1;transform:none}
+.slide.on .wave{stroke-dasharray:1400;stroke-dashoffset:1400;animation:draw 2.2s forwards}@keyframes draw{to{stroke-dashoffset:0}}
+#bar{position:fixed;left:0;bottom:0;height:4px;background:var(--teal);transition:width .3s;z-index:5}
+#num{position:fixed;right:16px;bottom:10px;color:#56658a;font-size:13px;z-index:5;font-family:ui-monospace,monospace}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:34vh;overflow:auto;background:rgba(5,8,15,.96);border-top:2px solid var(--amber);padding:14px 22px;font-size:17px;color:#dfe7fb;display:none;z-index:6}#notes b{color:var(--amber)}
+#help{position:fixed;left:16px;bottom:10px;color:#56658a;font-size:13px;z-index:5}
+</style></head><body><div id="stage"><section class="slide title" data-notes="Welcome. Introduce yourself briefly. Ask: how many of you have programmed an Arduino or ESP32 before? (Show of hands.) Today&#x27;s promise: by 4 PM every one of you will have made a microcontroller blink, sense and talk to the Internet, without touching a single wire."><div class="title-wrap"><div class="kick">Embedded Systems Workshop &middot; Dept. of ECE, NAVKIS College of Engineering, Hassan</div>
+<h1 class="hero">From Code to <span class="grad">Silicon</span></h1>
+<p class="tag">Blink. Sense. Connect.</p>
+<div class="byline"><b>Dr. Sathisha R N</b><br>Assistant Professor, Dept. of Electronics &amp; Telecommunication Engineering<br>Siddaganga Institute of Technology, Tumakuru</div>
+<div class="date">Wednesday, 25 November 2026</div></div>
+<svg class="chipart" viewBox="0 0 300 300"><g fill="none" stroke="#2ee6c5" stroke-width="3" opacity=".9">
+<rect x="80" y="80" width="140" height="140" rx="12"/><rect x="110" y="110" width="80" height="80" rx="6" stroke="#ffb547"/>
+<line x1="100" y1="80" x2="100" y2="45"/><line x1="100" y1="220" x2="100" y2="255"/><line x1="80" y1="100" x2="45" y2="100"/><line x1="220" y1="100" x2="255" y2="100"/><line x1="120" y1="80" x2="120" y2="45"/><line x1="120" y1="220" x2="120" y2="255"/><line x1="80" y1="120" x2="45" y2="120"/><line x1="220" y1="120" x2="255" y2="120"/><line x1="140" y1="80" x2="140" y2="45"/><line x1="140" y1="220" x2="140" y2="255"/><line x1="80" y1="140" x2="45" y2="140"/><line x1="220" y1="140" x2="255" y2="140"/><line x1="160" y1="80" x2="160" y2="45"/><line x1="160" y1="220" x2="160" y2="255"/><line x1="80" y1="160" x2="45" y2="160"/><line x1="220" y1="160" x2="255" y2="160"/><line x1="180" y1="80" x2="180" y2="45"/><line x1="180" y1="220" x2="180" y2="255"/><line x1="80" y1="180" x2="45" y2="180"/><line x1="220" y1="180" x2="255" y2="180"/><line x1="200" y1="80" x2="200" y2="45"/><line x1="200" y1="220" x2="200" y2="255"/><line x1="80" y1="200" x2="45" y2="200"/><line x1="220" y1="200" x2="255" y2="200"/></g>
+<circle class="pulse" cx="150" cy="150" r="10" fill="#ffb547"/></svg></section><section class="slide " data-notes="Keep this to under a minute. The point of mentioning the farm irrigation project is that embedded systems solve real, local problems."><h2>Who am I?</h2><div class="two"><ul class="frag-list">
+<li class="frag">Assistant Professor, Dept. of ETE, <b>Siddaganga Institute of Technology</b>, Tumakuru (since 2007)</li>
+<li class="frag">PhD, <b>IISc Bengaluru</b> &mdash; Optical Wireless Communication (data over beams of light)</li>
+<li class="frag">VTU Research Supervisor</li>
+<li class="frag">I build things with sensors, microcontrollers and radios &mdash; from lab test-beds to IoT drip irrigation on a farm</li></ul>
+<div class="labbox"><div class="lbl">Contact</div><div class="url" style="font-size:22px">satisharyan@gmail.com</div><div class="lbl" style="margin-top:18px">Slides, labs &amp; quiz</div><div class="qrbox" data-qr="index.html"></div></div></div></section><section class="slide " data-notes="Point out that two thirds of the day is hands-on. Lab 6 (multitasking) is a bonus for fast finishers."><h2>Today&rsquo;s plan</h2><table class="agenda">
+<tr><td>10:30</td><td><b>Session 1</b> &mdash; Embedded systems: where circuits meet code</td></tr>
+<tr class="brk"><td>11:30</td><td>Tea</td></tr>
+<tr><td>11:45</td><td><b>Session 2</b> &mdash; Hands-on: GPIO &middot; interrupts &middot; ADC/PWM <span class="tagp">Labs 1&ndash;3</span></td></tr>
+<tr class="brk"><td>1:00</td><td>Lunch</td></tr>
+<tr><td>1:45</td><td><b>Session 3</b> &mdash; Hands-on: I&sup2;C sensors &middot; IoT with MQTT <span class="tagp">Labs 4&ndash;5</span></td></tr>
+<tr><td>2:45</td><td><b>Mini-challenge</b> &mdash; Smart Street Light <span class="tagp">teams</span></td></tr>
+<tr><td>3:25</td><td><b>Beyond the superloop</b> &mdash; RTOS, real products, careers</td></tr>
+<tr><td>3:45</td><td>Quiz &amp; feedback</td></tr></table></section><section class="slide " data-notes="Get everyone to open wokwi.com and the workshop site now, while you talk. Check the room for blocked sites before Session 2."><h2>Your lab bench today</h2><div class="two"><div>
+<p class="big">No boards. No wires. No installs.</p>
+<ul class="frag-list"><li class="frag"><b>Wokwi</b> &mdash; a free ESP32 simulator in the browser. Today we program it in <b>MicroPython</b>, so it starts instantly with no build queue.</li>
+<li class="frag">Virtual LEDs, buttons, sensors, OLED displays&hellip; and even <b>virtual Wi-Fi</b> with real Internet.</li>
+<li class="frag">Everything you learn runs unchanged on a real ESP32 board.</li></ul>
+<p class="frag cta">&#x1F449; Open <b>wokwi.com</b> now in Chrome or Edge</p></div>
+<div class="labbox"><div class="lbl">Workshop site</div><div class="qrbox" data-qr="index.html"></div><div style="color:var(--mute);margin-top:10px">Slides &middot; labs &middot; dashboard &middot; quiz</div></div></div></section><section class="slide section" data-notes=""><div class="secno">01</div><h1 class="sect">Embedded systems:<br>where circuits meet code</h1><p class="sub">What changes when your circuits run code?</p></section><section class="slide " data-notes="Ask: how many computers are in this room right now? Count the projector, the fan regulator, phones, the AC, the smart card in your ID... Microcontrollers ship in the billions every year, far more than PC processors."><h2>You are surrounded</h2><div class="icons">
+<div class="frag"><span>&#x1F697;</span>Car<br><small>dozens of controllers: engine, ABS, airbags</small></div>
+<div class="frag"><span>&#x1F4F1;</span>Phone<br><small>besides the CPU: power, touch, camera, radio</small></div>
+<div class="frag"><span>&#x1F9FA;</span>Washing machine<br><small>motor control, water level, a UI</small></div>
+<div class="frag"><span>&#x26A1;</span>Smart meter<br><small>measure, log, report</small></div>
+<div class="frag"><span>&#x1FA7A;</span>Pacemaker<br><small>hard real-time, years on one battery</small></div>
+<div class="frag"><span>&#x1F681;</span>Drone<br><small>flight control loop at hundreds of Hz</small></div></div>
+<p class="frag big center">Most computers in the world are not PCs &mdash; they are <span class="hl">hidden inside things</span>.</p></section><section class="slide " data-notes="The dashed line shows that the action changes the world, and the next measurement sees it. That is feedback: a thermostat, a drone, cruise control."><h2>What is an embedded system?</h2>
+<p class="big">A computer <span class="hl">dedicated to one job</span>, built into a larger product, that senses the world and acts on it &mdash; usually under limits of cost, power and time.</p>
+<svg viewBox="0 0 1000 260" class="diag">
+<defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="#9fb0d3"/></marker></defs>
+<g class="frag"><rect x="20" y="70" width="230" height="120" rx="16" class="bx"/><text x="135" y="122" class="t1">SENSE</text><text x="135" y="155" class="t2">temperature, light, button</text></g>
+<g class="frag"><line x1="255" y1="130" x2="370" y2="130" class="ln" marker-end="url(#ar)"/><rect x="380" y="50" width="240" height="160" rx="16" class="bx hlb"/><text x="500" y="118" class="t1">COMPUTE</text><text x="500" y="152" class="t2">your firmware</text><text x="500" y="180" class="t2">on a microcontroller</text></g>
+<g class="frag"><line x1="625" y1="130" x2="740" y2="130" class="ln" marker-end="url(#ar)"/><rect x="750" y="70" width="230" height="120" rx="16" class="bx"/><text x="865" y="122" class="t1">ACT</text><text x="865" y="155" class="t2">LED, motor, relay, radio</text></g>
+<path class="frag ln" d="M865,195 C865,255 135,255 135,195" fill="none" marker-end="url(#ar)" stroke-dasharray="6 6"/></svg>
+<p class="frag center sub">&hellip;and the loop runs forever: <code>while(1) { sense(); compute(); act(); }</code></p></section><section class="slide " data-notes="About 60,000 times less RAM. Every byte and every milliamp matters, which is why embedded C and C++ dominate. The power numbers are typical orders of magnitude, not exact."><h2>Your laptop vs. the ESP32</h2><table class="cmp">
+<tr><th></th><th>Typical laptop</th><th>ESP32 (today&rsquo;s chip)</th></tr>
+<tr class="frag"><td>CPU</td><td>4&ndash;16 cores, ~3 GHz</td><td>2 &times; Xtensa LX6 cores, up to <b>240 MHz</b></td></tr>
+<tr class="frag"><td>RAM</td><td>8&ndash;32 <b>GB</b></td><td><b>520 KB</b> SRAM</td></tr>
+<tr class="frag"><td>Storage</td><td>512 GB SSD</td><td>4 MB flash (on the DevKit module)</td></tr>
+<tr class="frag"><td>OS</td><td>Windows / Linux</td><td>none, or <b>FreeRTOS</b></td></tr>
+<tr class="frag"><td>Power</td><td>15&ndash;65 W</td><td>~0.1&ndash;0.5 W active, &micro;W in deep sleep</td></tr>
+<tr class="frag"><td>Built-in</td><td>&mdash;</td><td>Wi-Fi, Bluetooth, ADC, PWM, I&sup2;C, SPI, UART, touch</td></tr>
+<tr class="frag"><td>Cost</td><td>&#8377;50,000+</td><td>a few hundred rupees for a dev board</td></tr></table></section><section class="slide " data-notes="Ask the class which constraint matters most for each product from the earlier slide."><h2>Constraints shape everything</h2><div class="grid3">
+<div class="frag tile"><b>&#x1F9E0; Memory</b>KBs, not GBs. No careless <code>new</code> in loops.</div>
+<div class="frag tile"><b>&#x23F1; Time</b>A response that is correct but late is wrong (airbags!).</div>
+<div class="frag tile"><b>&#x1F50B; Power</b>Run for years on a coin cell: sleep, wake, sleep.</div>
+<div class="frag tile"><b>&#x1F4B0; Cost</b>Saving &#8377;10 &times; 1 million units = &#8377;1 crore.</div>
+<div class="frag tile"><b>&#x1F6E1; Reliability</b>No &ldquo;have you tried restarting?&rdquo; in a pacemaker. Watchdogs!</div>
+<div class="frag tile"><b>&#x1F576; No screen</b>Debug with an LED, the serial port, a logic analyser.</div></div></section><section class="slide " data-notes="Key idea: a peripheral is just memory-mapped registers. Writing a bit to an address turns on a pin. Everything else today is a friendly layer on top of that."><h2>Inside a microcontroller</h2>
+<svg viewBox="0 0 1000 420" class="diag">
+<rect x="250" y="20" width="500" height="380" rx="20" class="bx" stroke-width="3"/><text x="500" y="55" class="t1" fill="#ffb547">ESP32 SoC</text>
+<g class="frag"><rect x="290" y="80" width="190" height="80" rx="10" class="bx hlb"/><text x="385" y="115" class="t1">CPU &times;2</text><text x="385" y="142" class="t2">runs your code</text></g>
+<g class="frag"><rect x="520" y="80" width="190" height="80" rx="10" class="bx"/><text x="605" y="115" class="t1">Memory</text><text x="605" y="142" class="t2">flash + SRAM</text></g>
+<g class="frag"><rect x="290" y="185" width="420" height="44" rx="10" class="bx"/><text x="500" y="213" class="t2" style="font-size:16px">bus: each peripheral = <tspan fill="#2ee6c5">registers</tspan> at an address</text></g>
+<g class="frag"><rect x="290" y="250" width="96" height="60" rx="8" class="bx"/><text x="338" y="287" class="t2" style="font-size:18px">GPIO</text><rect x="398" y="250" width="96" height="60" rx="8" class="bx"/><text x="446" y="287" class="t2" style="font-size:18px">Timers</text><rect x="506" y="250" width="96" height="60" rx="8" class="bx"/><text x="554" y="287" class="t2" style="font-size:18px">ADC</text><rect x="614" y="250" width="96" height="60" rx="8" class="bx"/><text x="662" y="287" class="t2" style="font-size:18px">PWM</text></g>
+<g class="frag"><rect x="290" y="322" width="96" height="60" rx="8" class="bx"/><text x="338" y="359" class="t2" style="font-size:18px">UART</text><rect x="398" y="322" width="96" height="60" rx="8" class="bx"/><text x="446" y="359" class="t2" style="font-size:18px">I&#178;C</text><rect x="506" y="322" width="96" height="60" rx="8" class="bx"/><text x="554" y="359" class="t2" style="font-size:18px">SPI</text><rect x="614" y="322" width="96" height="60" rx="8" class="bx"/><text x="662" y="359" class="t2" style="font-size:18px">Wi-Fi/BT</text></g>
+<g class="frag"><text x="120" y="200" class="t2" style="font-size:20px">sensors &rarr;</text><text x="120" y="230" class="t2" style="font-size:20px">buttons &rarr;</text><text x="880" y="200" class="t2" style="font-size:20px">&rarr; LEDs</text><text x="880" y="230" class="t2" style="font-size:20px">&rarr; motors</text><text x="880" y="290" class="t2" style="font-size:20px">&rarr; cloud</text></g>
+<g class="frag"><rect x="260" y="235" width="22" height="22" rx="4" fill="#ff6b8a"/><text x="210" y="300" class="t2" style="font-size:16px" fill="#ff6b8a">interrupt</text><text x="210" y="320" class="t2" style="font-size:16px" fill="#ff6b8a">controller</text></g></svg></section><section class="slide " data-notes="Prices are approximate Indian retail for common boards and change often. The closest alternative is the Raspberry Pi Pico W (RP2040): Wi-Fi, MicroPython and cheap, but the ESP32 has more RAM, Bluetooth and a much larger base of real products. STM32 dominates industrial products: learn it next. A Raspberry Pi is a full Linux computer: excellent as a gateway or for vision, not for microsecond timing. The point for students: learn the concepts on the ESP32, and they carry over to any board."><h2>Why the ESP32, and not another board?</h2><table class="cmp" style="font-size:17px"><tr><th></th><th>Arduino Uno</th><th style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">ESP32 (today)</th><th>STM32 Blue Pill</th><th>Raspberry Pi 4 / 5</th></tr><tr class="frag"><td>CPU</td><td>8-bit AVR, 16 MHz</td><td style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">2 × 32-bit, 240 MHz</td><td>32-bit Arm, 72 MHz</td><td>4 × 64-bit Arm, ~2 GHz</td></tr><tr class="frag"><td>RAM</td><td>2 KB</td><td style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">520 KB</td><td>20 KB</td><td>1–8 GB</td></tr><tr class="frag"><td>Wi-Fi + Bluetooth</td><td>No</td><td style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">Built in</td><td>No</td><td>Built in</td></tr><tr class="frag"><td>Python</td><td>No (C++ only)</td><td style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">MicroPython</td><td>Mostly C / C++</td><td>Full Python on Linux</td></tr><tr class="frag"><td>Real-time pin control</td><td>Yes</td><td style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">Yes (FreeRTOS)</td><td>Yes</td><td>No (Linux)</td></tr><tr class="frag"><td>Approx. price</td><td>₹400+ (clone)</td><td style="color:var(--teal);font-weight:700;background:rgba(46,230,197,.10)">₹350+</td><td>₹300+</td><td>₹4,500+</td></tr></table><p class="frag" style="margin-top:18px;font-size:20px;line-height:1.5;border-left:4px solid var(--teal);padding-left:14px"><b style="color:var(--teal)">The ESP32 covers the whole day:</b> Real-time pins like an Arduino, Wi-Fi like a Pi, Python like your laptop, at an Arduino price. And the skills transfer: GPIO, ADC, PWM, I²C and MQTT work the same way on every board.</p></section><section class="slide " data-notes="Hold up a real board if you have one. The module under the metal shield is the actual computer; everything else on the board is support: power, USB and buttons. The USB-to-UART chip (CP2102 or CH340, depending on the maker) is why the board shows up as a COM port. If a laptop cannot see a real board, it is usually a missing driver for this chip or a charge-only USB cable."><h2>Parts of the ESP32 DevKit</h2><div style="display:flex;justify-content:center"><div style="width:100%;max-width:1060px"><svg style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 720" role="img" aria-label="Parts of the ESP32 DevKitC board" font-family="Inter, Calibri, Arial, sans-serif">
+<rect x="580" y="30" width="240" height="630" rx="14" fill="#1E2533" stroke="#4A5875" stroke-width="3"/>
+<circle cx="596" cy="120" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="120" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="120" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="120" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="149" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="149" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="149" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="149" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="178" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="178" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="178" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="178" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="207" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="207" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="207" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="207" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="236" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="236" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="236" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="236" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="265" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="265" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="265" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="265" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="294" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="294" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="294" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="294" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="323" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="323" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="323" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="323" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="352" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="352" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="352" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="352" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="381" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="381" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="381" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="381" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="410" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="410" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="410" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="410" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="439" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="439" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="439" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="439" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="468" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="468" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="468" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="468" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="497" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="497" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="497" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="497" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="526" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="526" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="526" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="526" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="555" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="555" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="555" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="555" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="584" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="584" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="584" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="584" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="613" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="613" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="613" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="613" r="2.5" fill="#1E2533"/>
+<circle cx="596" cy="642" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="596" cy="642" r="2.5" fill="#1E2533"/>
+<circle cx="804" cy="642" r="7" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="804" cy="642" r="2.5" fill="#1E2533"/>
+<rect x="618" y="38" width="164" height="300" rx="6" fill="#151A24" stroke="#4A5875" stroke-width="2"/>
+<path d="M630,92 L644,58 L658,92 L672,58 L686,92 L700,58 L714,92 L728,58 L742,92 L756,58 L770,92 L770,92" fill="none" stroke="#D4AF37" stroke-width="4" stroke-linejoin="round"/>
+<rect x="628" y="112" width="144" height="212" rx="6" fill="#C9CED8" stroke="#8D95A5" stroke-width="2"/>
+<text x="700" y="205" text-anchor="middle" font-size="19" font-weight="800" fill="#2B3445">ESP32-</text>
+<text x="700" y="229" text-anchor="middle" font-size="19" font-weight="800" fill="#2B3445">WROOM-32</text>
+<text x="700" y="258" text-anchor="middle" font-size="13" fill="#4B5563">metal shield</text>
+<rect x="628" y="372" width="18" height="10" rx="2" fill="#FF4D4D"/><circle cx="637" cy="377" r="14" fill="#FF4D4D" opacity="0.25"/>
+<rect x="712" y="364" width="62" height="34" rx="3" fill="#2A2F3A" stroke="#7B8798" stroke-width="1.5"/>
+<rect x="719" y="398" width="8" height="10" fill="#B9C0CC"/>
+<rect x="739" y="398" width="8" height="10" fill="#B9C0CC"/>
+<rect x="759" y="398" width="8" height="10" fill="#B9C0CC"/>
+<rect x="724" y="352" width="38" height="12" fill="#B9C0CC"/>
+<rect x="668" y="454" width="64" height="64" rx="4" fill="#2A2F3A" stroke="#7B8798" stroke-width="1.5"/><circle cx="678" cy="464" r="3" fill="#7B8798"/>
+<rect x="674" y="518" width="4" height="8" fill="#B9C0CC"/><rect x="674" y="446" width="4" height="8" fill="#B9C0CC"/>
+<rect x="684" y="518" width="4" height="8" fill="#B9C0CC"/><rect x="684" y="446" width="4" height="8" fill="#B9C0CC"/>
+<rect x="694" y="518" width="4" height="8" fill="#B9C0CC"/><rect x="694" y="446" width="4" height="8" fill="#B9C0CC"/>
+<rect x="704" y="518" width="4" height="8" fill="#B9C0CC"/><rect x="704" y="446" width="4" height="8" fill="#B9C0CC"/>
+<rect x="714" y="518" width="4" height="8" fill="#B9C0CC"/><rect x="714" y="446" width="4" height="8" fill="#B9C0CC"/>
+<rect x="724" y="518" width="4" height="8" fill="#B9C0CC"/><rect x="724" y="446" width="4" height="8" fill="#B9C0CC"/>
+<rect x="606" y="578" width="44" height="44" rx="5" fill="#3A4152" stroke="#8D95A5" stroke-width="1.5"/><circle cx="628" cy="600" r="12" fill="#11151D"/>
+<text x="628" y="640" text-anchor="middle" font-size="12" font-weight="700" fill="#D9DEE8">EN</text>
+<rect x="750" y="578" width="44" height="44" rx="5" fill="#3A4152" stroke="#8D95A5" stroke-width="1.5"/><circle cx="772" cy="600" r="12" fill="#11151D"/>
+<text x="772" y="640" text-anchor="middle" font-size="12" font-weight="700" fill="#D9DEE8">BOOT</text>
+<rect x="666" y="628" width="68" height="46" rx="6" fill="#B9C0CC" stroke="#7B8798" stroke-width="2"/><rect x="680" y="640" width="40" height="12" rx="3" fill="#4A5363"/>
+<line x1="556" y1="64" x2="640" y2="75" stroke="#6F82AA" stroke-width="2"/><circle cx="640" cy="75" r="5" fill="#2EE6C5"/>
+<text x="548" y="60" text-anchor="end" font-size="22" font-weight="800" fill="#E8EEFC">PCB antenna</text>
+<text x="548" y="86" text-anchor="end" font-size="17" fill="#9FB0D3">2.4 GHz Wi-Fi and Bluetooth</text>
+<line x1="556" y1="194" x2="640" y2="210" stroke="#6F82AA" stroke-width="2"/><circle cx="640" cy="210" r="5" fill="#2EE6C5"/>
+<text x="548" y="190" text-anchor="end" font-size="22" font-weight="800" fill="#2EE6C5">ESP32-WROOM-32 module</text>
+<text x="548" y="216" text-anchor="end" font-size="17" fill="#9FB0D3">2 cores at 240 MHz, 520 KB SRAM,</text>
+<text x="548" y="238" text-anchor="end" font-size="17" fill="#9FB0D3">4 MB flash, radio: all under the shield</text>
+<line x1="556" y1="324" x2="596" y2="323" stroke="#6F82AA" stroke-width="2"/><circle cx="596" cy="323" r="5" fill="#2EE6C5"/>
+<text x="548" y="320" text-anchor="end" font-size="22" font-weight="800" fill="#E8EEFC">38 header pins (2 × 19)</text>
+<text x="548" y="346" text-anchor="end" font-size="17" fill="#9FB0D3">GPIO, ADC, PWM, I²C, SPI, UART,</text>
+<text x="548" y="368" text-anchor="end" font-size="17" fill="#9FB0D3">3.3 V, 5 V and GND</text>
+<line x1="556" y1="434" x2="637" y2="377" stroke="#6F82AA" stroke-width="2"/><circle cx="637" cy="377" r="5" fill="#2EE6C5"/>
+<text x="548" y="430" text-anchor="end" font-size="22" font-weight="800" fill="#E8EEFC">Power LED</text>
+<text x="548" y="456" text-anchor="end" font-size="17" fill="#9FB0D3">on when the board has power</text>
+<line x1="556" y1="574" x2="618" y2="600" stroke="#6F82AA" stroke-width="2"/><circle cx="618" cy="600" r="5" fill="#2EE6C5"/>
+<text x="548" y="570" text-anchor="end" font-size="22" font-weight="800" fill="#E8EEFC">EN button</text>
+<text x="548" y="596" text-anchor="end" font-size="17" fill="#9FB0D3">reset: restarts your program</text>
+<line x1="844" y1="294" x2="743" y2="370" stroke="#6F82AA" stroke-width="2"/><circle cx="743" cy="370" r="5" fill="#2EE6C5"/>
+<text x="852" y="290" text-anchor="start" font-size="22" font-weight="800" fill="#E8EEFC">3.3 V regulator</text>
+<text x="852" y="316" text-anchor="start" font-size="17" fill="#9FB0D3">USB 5 V → 3.3 V for the chip</text>
+<text x="852" y="338" text-anchor="start" font-size="17" fill="#9FB0D3">(pins are 3.3 V, not 5 V)</text>
+<line x1="844" y1="434" x2="732" y2="486" stroke="#6F82AA" stroke-width="2"/><circle cx="732" cy="486" r="5" fill="#2EE6C5"/>
+<text x="852" y="430" text-anchor="start" font-size="22" font-weight="800" fill="#E8EEFC">USB-to-UART bridge</text>
+<text x="852" y="456" text-anchor="start" font-size="17" fill="#9FB0D3">your laptop's serial port:</text>
+<text x="852" y="478" text-anchor="start" font-size="17" fill="#9FB0D3">flashing + Serial Monitor</text>
+<line x1="844" y1="564" x2="784" y2="600" stroke="#6F82AA" stroke-width="2"/><circle cx="784" cy="600" r="5" fill="#2EE6C5"/>
+<text x="852" y="560" text-anchor="start" font-size="22" font-weight="800" fill="#E8EEFC">BOOT button (GPIO 0)</text>
+<text x="852" y="586" text-anchor="start" font-size="17" fill="#9FB0D3">hold + press EN = download mode</text>
+<line x1="844" y1="670" x2="734" y2="652" stroke="#6F82AA" stroke-width="2"/><circle cx="734" cy="652" r="5" fill="#2EE6C5"/>
+<text x="852" y="666" text-anchor="start" font-size="22" font-weight="800" fill="#E8EEFC">Micro-USB port</text>
+<text x="852" y="692" text-anchor="start" font-size="17" fill="#9FB0D3">power + programming</text>
+</svg></div></div></section><section class="slide " data-notes="Don&#x27;t read every pin. Point out the colours: ADC1 in teal, ADC2 in blue, the grey flash pins to avoid and the yellow boot pins. The starred pins in teal are the ones we use today. Come back to this slide while students wire Lab 1."><h2 style="margin-bottom:6px">ESP32 DevKitC pinout: what each pin can do</h2><div style="display:flex;justify-content:center"><div style="height:560px"><svg style="height:100%;width:auto" xmlns="http://www.w3.org/2000/svg" viewBox="310 0 1060 860" role="img" aria-label="ESP32 DevKitC V4 pinout with the functions of each pin" font-family="Inter, Calibri, Arial, sans-serif">
+<rect x="700" y="20" width="200" height="820" rx="14" fill="#1E2533" stroke="#4A5875" stroke-width="3"/>
+<rect x="725" y="30" width="150" height="230" rx="6" fill="#151A24" stroke="#4A5875" stroke-width="2"/>
+<path d="M736,66 L748,40 L760,66 L772,40 L784,66 L796,40 L808,66 L820,40 L832,66 L844,40 L856,66 L864,66" fill="none" stroke="#D4AF37" stroke-width="3.5" stroke-linejoin="round"/>
+<rect x="733" y="82" width="134" height="168" rx="5" fill="#C9CED8" stroke="#8D95A5" stroke-width="2"/>
+<text x="800" y="160" text-anchor="middle" font-size="16" font-weight="800" fill="#2B3445">ESP32-</text><text x="800" y="182" text-anchor="middle" font-size="16" font-weight="800" fill="#2B3445">WROOM-32</text>
+<rect x="772" y="800" width="56" height="36" rx="5" fill="#B9C0CC" stroke="#7B8798" stroke-width="2"/><text x="800" y="790" text-anchor="middle" font-size="13" fill="#D9DEE8">USB</text>
+<text x="800" y="560" text-anchor="middle" font-size="15" font-weight="700" fill="#AEB6C4">ESP32</text><text x="800" y="580" text-anchor="middle" font-size="15" font-weight="700" fill="#AEB6C4">DevKitC V4</text><text x="800" y="600" text-anchor="middle" font-size="13" fill="#8D95A5">top view</text>
+<circle cx="716" cy="104" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="104" r="3" fill="#1E2533"/>
+<text x="688" y="110" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">3V3</text>
+<rect x="496" y="92" width="52" height="24" rx="5" fill="#E5484D"/><text x="522.0" y="109" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">3.3V</text>
+<circle cx="716" cy="142" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="142" r="3" fill="#1E2533"/>
+<text x="688" y="148" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">EN</text>
+<rect x="487" y="130" width="61" height="24" rx="5" fill="#8B5CF6"/><text x="517.5" y="147" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">RESET</text>
+<circle cx="716" cy="180" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="180" r="3" fill="#1E2533"/>
+<text x="688" y="186" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 36 (VP)</text>
+<rect x="444" y="168" width="104" height="24" rx="5" fill="#F5B83D"/><text x="496.0" y="185" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1206">INPUT ONLY</text>
+<rect x="386" y="168" width="52" height="24" rx="5" fill="#14B8A6"/><text x="412.0" y="185" text-anchor="middle" font-size="13" font-weight="800" fill="#05201C">ADC1</text>
+<circle cx="716" cy="218" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="218" r="3" fill="#1E2533"/>
+<text x="688" y="224" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 39 (VN)</text>
+<rect x="444" y="206" width="104" height="24" rx="5" fill="#F5B83D"/><text x="496.0" y="223" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1206">INPUT ONLY</text>
+<rect x="386" y="206" width="52" height="24" rx="5" fill="#14B8A6"/><text x="412.0" y="223" text-anchor="middle" font-size="13" font-weight="800" fill="#05201C">ADC1</text>
+<circle cx="716" cy="256" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="256" r="3" fill="#1E2533"/>
+<text x="688" y="262" text-anchor="end" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 34</text>
+<rect x="444" y="244" width="104" height="24" rx="5" fill="#F5B83D"/><text x="496.0" y="261" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1206">INPUT ONLY</text>
+<rect x="386" y="244" width="52" height="24" rx="5" fill="#14B8A6"/><text x="412.0" y="261" text-anchor="middle" font-size="13" font-weight="800" fill="#05201C">ADC1</text>
+<text x="374" y="262" text-anchor="end" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ pot</text>
+<circle cx="716" cy="294" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="294" r="3" fill="#1E2533"/>
+<text x="688" y="300" text-anchor="end" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 35</text>
+<rect x="444" y="282" width="104" height="24" rx="5" fill="#F5B83D"/><text x="496.0" y="299" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1206">INPUT ONLY</text>
+<rect x="386" y="282" width="52" height="24" rx="5" fill="#14B8A6"/><text x="412.0" y="299" text-anchor="middle" font-size="13" font-weight="800" fill="#05201C">ADC1</text>
+<text x="374" y="300" text-anchor="end" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ LDR</text>
+<circle cx="716" cy="332" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="332" r="3" fill="#1E2533"/>
+<text x="688" y="338" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 32</text>
+<rect x="496" y="320" width="52" height="24" rx="5" fill="#14B8A6"/><text x="522.0" y="337" text-anchor="middle" font-size="13" font-weight="800" fill="#05201C">ADC1</text>
+<rect x="429" y="320" width="61" height="24" rx="5" fill="#A855F7"/><text x="459.5" y="337" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<circle cx="716" cy="370" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="370" r="3" fill="#1E2533"/>
+<text x="688" y="376" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 33</text>
+<rect x="496" y="358" width="52" height="24" rx="5" fill="#14B8A6"/><text x="522.0" y="375" text-anchor="middle" font-size="13" font-weight="800" fill="#05201C">ADC1</text>
+<rect x="429" y="358" width="61" height="24" rx="5" fill="#A855F7"/><text x="459.5" y="375" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<circle cx="716" cy="408" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="408" r="3" fill="#1E2533"/>
+<text x="688" y="414" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 25</text>
+<rect x="496" y="396" width="52" height="24" rx="5" fill="#3B82F6"/><text x="522.0" y="413" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="447" y="396" width="43" height="24" rx="5" fill="#F97316"/><text x="468.5" y="413" text-anchor="middle" font-size="13" font-weight="800" fill="#1A0E05">DAC</text>
+<circle cx="716" cy="446" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="446" r="3" fill="#1E2533"/>
+<text x="688" y="452" text-anchor="end" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 26</text>
+<rect x="496" y="434" width="52" height="24" rx="5" fill="#3B82F6"/><text x="522.0" y="451" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="447" y="434" width="43" height="24" rx="5" fill="#F97316"/><text x="468.5" y="451" text-anchor="middle" font-size="13" font-weight="800" fill="#1A0E05">DAC</text>
+<text x="435" y="452" text-anchor="end" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ LED</text>
+<circle cx="716" cy="484" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="484" r="3" fill="#1E2533"/>
+<text x="688" y="490" text-anchor="end" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 27</text>
+<rect x="496" y="472" width="52" height="24" rx="5" fill="#3B82F6"/><text x="522.0" y="489" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="429" y="472" width="61" height="24" rx="5" fill="#A855F7"/><text x="459.5" y="489" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<text x="417" y="490" text-anchor="end" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ LED 2</text>
+<circle cx="716" cy="522" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="522" r="3" fill="#1E2533"/>
+<text x="688" y="528" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 14</text>
+<rect x="496" y="510" width="52" height="24" rx="5" fill="#3B82F6"/><text x="522.0" y="527" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="429" y="510" width="61" height="24" rx="5" fill="#A855F7"/><text x="459.5" y="527" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<circle cx="716" cy="560" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="560" r="3" fill="#1E2533"/>
+<text x="688" y="566" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 12</text>
+<rect x="496" y="548" width="52" height="24" rx="5" fill="#3B82F6"/><text x="522.0" y="565" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="429" y="548" width="61" height="24" rx="5" fill="#A855F7"/><text x="459.5" y="565" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<rect x="337" y="548" width="86" height="24" rx="5" fill="#FACC15"/><text x="380.0" y="565" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1606">BOOT PIN</text>
+<circle cx="716" cy="598" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="598" r="3" fill="#1E2533"/>
+<text x="688" y="604" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GND</text>
+<rect x="505" y="586" width="43" height="24" rx="5" fill="#4B5563"/><text x="526.5" y="603" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">GND</text>
+<circle cx="716" cy="636" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="636" r="3" fill="#1E2533"/>
+<text x="688" y="642" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 13</text>
+<rect x="496" y="624" width="52" height="24" rx="5" fill="#3B82F6"/><text x="522.0" y="641" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="429" y="624" width="61" height="24" rx="5" fill="#A855F7"/><text x="459.5" y="641" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<circle cx="716" cy="674" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="674" r="3" fill="#1E2533"/>
+<text x="688" y="680" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 9 (D2)</text>
+<rect x="427" y="662" width="121" height="24" rx="5" fill="#2B3240"/><text x="487.5" y="679" text-anchor="middle" font-size="13" font-weight="800" fill="#AEB6C4">FLASH: AVOID</text>
+<circle cx="716" cy="712" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="712" r="3" fill="#1E2533"/>
+<text x="688" y="718" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 10 (D3)</text>
+<rect x="427" y="700" width="121" height="24" rx="5" fill="#2B3240"/><text x="487.5" y="717" text-anchor="middle" font-size="13" font-weight="800" fill="#AEB6C4">FLASH: AVOID</text>
+<circle cx="716" cy="750" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="750" r="3" fill="#1E2533"/>
+<text x="688" y="756" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 11 (CMD)</text>
+<rect x="427" y="738" width="121" height="24" rx="5" fill="#2B3240"/><text x="487.5" y="755" text-anchor="middle" font-size="13" font-weight="800" fill="#AEB6C4">FLASH: AVOID</text>
+<circle cx="716" cy="788" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="716" cy="788" r="3" fill="#1E2533"/>
+<text x="688" y="794" text-anchor="end" font-size="17" font-weight="600" fill="#E8EEFC">5V</text>
+<rect x="513" y="776" width="35" height="24" rx="5" fill="#E5484D"/><text x="530.5" y="793" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">5V</text>
+<circle cx="884" cy="104" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="104" r="3" fill="#1E2533"/>
+<text x="912" y="110" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GND</text>
+<rect x="1052" y="92" width="43" height="24" rx="5" fill="#4B5563"/><text x="1073.5" y="109" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">GND</text>
+<circle cx="884" cy="142" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="142" r="3" fill="#1E2533"/>
+<text x="912" y="148" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 23</text>
+<rect x="1052" y="130" width="86" height="24" rx="5" fill="#EC4899"/><text x="1095.0" y="147" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">SPI MOSI</text>
+<circle cx="884" cy="180" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="180" r="3" fill="#1E2533"/>
+<text x="912" y="186" text-anchor="start" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 22</text>
+<rect x="1052" y="168" width="78" height="24" rx="5" fill="#22C55E"/><text x="1091.0" y="185" text-anchor="middle" font-size="13" font-weight="800" fill="#062012">I²C SCL</text>
+<text x="1142" y="186" text-anchor="start" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ OLED</text>
+<circle cx="884" cy="218" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="218" r="3" fill="#1E2533"/>
+<text x="912" y="224" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 1 (TX)</text>
+<rect x="1052" y="206" width="86" height="24" rx="5" fill="#06B6D4"/><text x="1095.0" y="223" text-anchor="middle" font-size="13" font-weight="800" fill="#04161A">UART0 TX</text>
+<circle cx="884" cy="256" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="256" r="3" fill="#1E2533"/>
+<text x="912" y="262" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 3 (RX)</text>
+<rect x="1052" y="244" width="86" height="24" rx="5" fill="#06B6D4"/><text x="1095.0" y="261" text-anchor="middle" font-size="13" font-weight="800" fill="#04161A">UART0 RX</text>
+<circle cx="884" cy="294" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="294" r="3" fill="#1E2533"/>
+<text x="912" y="300" text-anchor="start" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 21</text>
+<rect x="1052" y="282" width="78" height="24" rx="5" fill="#22C55E"/><text x="1091.0" y="299" text-anchor="middle" font-size="13" font-weight="800" fill="#062012">I²C SDA</text>
+<text x="1142" y="300" text-anchor="start" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ OLED</text>
+<circle cx="884" cy="332" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="332" r="3" fill="#1E2533"/>
+<text x="912" y="338" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GND</text>
+<rect x="1052" y="320" width="43" height="24" rx="5" fill="#4B5563"/><text x="1073.5" y="337" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">GND</text>
+<circle cx="884" cy="370" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="370" r="3" fill="#1E2533"/>
+<text x="912" y="376" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 19</text>
+<rect x="1052" y="358" width="86" height="24" rx="5" fill="#EC4899"/><text x="1095.0" y="375" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">SPI MISO</text>
+<circle cx="884" cy="408" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="408" r="3" fill="#1E2533"/>
+<text x="912" y="414" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 18</text>
+<rect x="1052" y="396" width="78" height="24" rx="5" fill="#EC4899"/><text x="1091.0" y="413" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">SPI SCK</text>
+<circle cx="884" cy="446" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="446" r="3" fill="#1E2533"/>
+<text x="912" y="452" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 5</text>
+<rect x="1052" y="434" width="69" height="24" rx="5" fill="#EC4899"/><text x="1086.5" y="451" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">SPI CS</text>
+<rect x="1127" y="434" width="86" height="24" rx="5" fill="#FACC15"/><text x="1170.0" y="451" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1606">BOOT PIN</text>
+<circle cx="884" cy="484" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="484" r="3" fill="#1E2533"/>
+<text x="912" y="490" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 17</text>
+<rect x="1052" y="472" width="86" height="24" rx="5" fill="#06B6D4"/><text x="1095.0" y="489" text-anchor="middle" font-size="13" font-weight="800" fill="#04161A">UART2 TX</text>
+<circle cx="884" cy="522" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="522" r="3" fill="#1E2533"/>
+<text x="912" y="528" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 16</text>
+<rect x="1052" y="510" width="86" height="24" rx="5" fill="#06B6D4"/><text x="1095.0" y="527" text-anchor="middle" font-size="13" font-weight="800" fill="#04161A">UART2 RX</text>
+<circle cx="884" cy="560" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="560" r="3" fill="#1E2533"/>
+<text x="912" y="566" text-anchor="start" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 4</text>
+<rect x="1052" y="548" width="52" height="24" rx="5" fill="#3B82F6"/><text x="1078.0" y="565" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="1110" y="548" width="61" height="24" rx="5" fill="#A855F7"/><text x="1140.5" y="565" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<text x="1183" y="566" text-anchor="start" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ button</text>
+<circle cx="884" cy="598" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="598" r="3" fill="#1E2533"/>
+<text x="912" y="604" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 0</text>
+<rect x="1052" y="586" width="52" height="24" rx="5" fill="#3B82F6"/><text x="1078.0" y="603" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="1110" y="586" width="61" height="24" rx="5" fill="#A855F7"/><text x="1140.5" y="603" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<rect x="1177" y="586" width="86" height="24" rx="5" fill="#FACC15"/><text x="1220.0" y="603" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1606">BOOT PIN</text>
+<circle cx="884" cy="636" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="636" r="3" fill="#1E2533"/>
+<text x="912" y="642" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 2</text>
+<rect x="1052" y="624" width="52" height="24" rx="5" fill="#3B82F6"/><text x="1078.0" y="641" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="1110" y="624" width="61" height="24" rx="5" fill="#A855F7"/><text x="1140.5" y="641" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<rect x="1177" y="624" width="86" height="24" rx="5" fill="#FACC15"/><text x="1220.0" y="641" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1606">BOOT PIN</text>
+<circle cx="884" cy="674" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="674" r="3" fill="#1E2533"/>
+<text x="912" y="680" text-anchor="start" font-size="17" font-weight="800" fill="#2EE6C5">GPIO 15</text>
+<rect x="1052" y="662" width="52" height="24" rx="5" fill="#3B82F6"/><text x="1078.0" y="679" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">ADC2</text>
+<rect x="1110" y="662" width="61" height="24" rx="5" fill="#A855F7"/><text x="1140.5" y="679" text-anchor="middle" font-size="13" font-weight="800" fill="#FFFFFF">TOUCH</text>
+<rect x="1177" y="662" width="86" height="24" rx="5" fill="#FACC15"/><text x="1220.0" y="679" text-anchor="middle" font-size="13" font-weight="800" fill="#1A1606">BOOT PIN</text>
+<text x="1275" y="680" text-anchor="start" font-size="15" font-style="italic" font-weight="700" fill="#2EE6C5">★ DHT22</text>
+<circle cx="884" cy="712" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="712" r="3" fill="#1E2533"/>
+<text x="912" y="718" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 8 (D1)</text>
+<rect x="1052" y="700" width="121" height="24" rx="5" fill="#2B3240"/><text x="1112.5" y="717" text-anchor="middle" font-size="13" font-weight="800" fill="#AEB6C4">FLASH: AVOID</text>
+<circle cx="884" cy="750" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="750" r="3" fill="#1E2533"/>
+<text x="912" y="756" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 7 (D0)</text>
+<rect x="1052" y="738" width="121" height="24" rx="5" fill="#2B3240"/><text x="1112.5" y="755" text-anchor="middle" font-size="13" font-weight="800" fill="#AEB6C4">FLASH: AVOID</text>
+<circle cx="884" cy="788" r="8" fill="#D4AF37" stroke="#8C6F1C" stroke-width="2"/><circle cx="884" cy="788" r="3" fill="#1E2533"/>
+<text x="912" y="794" text-anchor="start" font-size="17" font-weight="600" fill="#E8EEFC">GPIO 6 (CLK)</text>
+<rect x="1052" y="776" width="121" height="24" rx="5" fill="#2B3240"/><text x="1112.5" y="793" text-anchor="middle" font-size="13" font-weight="800" fill="#AEB6C4">FLASH: AVOID</text>
+</svg></div></div></section><section class="slide " data-notes="These six rules prevent most beginner problems with real boards. Rule 5 matters in Lab 5 and the challenge: once Wi-Fi is on, only ADC1 pins (32–39) can read analog values, which is why the LDR is on GPIO 35."><h2>Pin rules that save you hours</h2><div class="grid3"><div class="frag tile"><b>3.3 V logic</b>Pins work at 3.3 V and are not 5 V tolerant. The 5V pin only supplies power.</div><div class="frag tile"><b>Input-only: 34, 35, 36, 39</b>No output and no internal pull-ups. Fine for a pot or an LDR.</div><div class="frag tile"><b>Hands off GPIO 6–11</b>Wired to the flash chip that stores your program. Using them crashes the board.</div><div class="frag tile"><b>Boot pins: 0, 2, 5, 12, 15</b>Read at power-up to choose how the chip starts. Don&#x27;t drive them while it boots.</div><div class="frag tile"><b>ADC1 when Wi-Fi is on</b>ADC2 stops working while Wi-Fi runs. Read analog values on GPIO 32–39.</div><div class="frag tile"><b>PWM and buses on any pin</b>Any output pin can do PWM; I²C, SPI and UART can move to almost any pin.</div></div><p class="frag" style="margin-top:18px;font-size:19px;color:var(--teal)"><b>Today: LED on 26 · LED 2 on 27 · button on 4 · pot on 34 · LDR on 35 · DHT22 on 15 · OLED on 21 (SDA) and 22 (SCL)</b></p></section><section class="slide " data-notes="Read from the NAVKIS ECE course matrix (VTU 2018 scheme). Ask: which layer have you studied most? ECE students build every hardware layer. Point at the amber row: the Microcontroller course in Sem IV and Embedded Systems in Sem VI are where all the other layers meet in firmware. Today is a preview of the Sem VI course and lab."><div class="kick">Read from your course matrix</div><h2>Your degree, layer by layer</h2><div style="display:grid;grid-template-columns:1fr 300px;gap:22px"><div><div class="frag" style="display:grid;grid-template-columns:230px 1fr 150px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:8px"><b style="color:var(--teal);font-size:19px">Networks &amp; systems</b><span style="font-size:16px;color:var(--mute)">Computer Networks · IoT &amp; Wireless Sensor Networks · Real Time Systems · Wireless &amp; Cellular Communication</span><span style="font-size:15px;color:var(--mute);text-align:right">Sem VII–VIII</span></div><div class="frag" style="display:grid;grid-template-columns:230px 1fr 150px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:8px"><b style="color:var(--teal);font-size:19px">Communication &amp; RF</b><span style="font-size:16px;color:var(--mute)">Principles of Communication · Digital Communication · Information Theory · EM Waves · Microwave &amp; Antennas</span><span style="font-size:15px;color:var(--mute);text-align:right">Sem V–VI</span></div><div class="frag" style="display:grid;grid-template-columns:230px 1fr 150px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:8px"><b style="color:var(--teal);font-size:19px">Signals &amp; control</b><span style="font-size:16px;color:var(--mute)">Signals &amp; Systems · Control Systems · Digital Signal Processing</span><span style="font-size:15px;color:var(--mute);text-align:right">Sem IV–V</span></div><div class="frag" style="display:grid;grid-template-columns:230px 1fr 150px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:8px"><b style="color:var(--teal);font-size:19px">Digital &amp; architecture</b><span style="font-size:16px;color:var(--mute)">Digital System Design · Computer Organization &amp; Architecture · Verilog HDL · VLSI Design</span><span style="font-size:15px;color:var(--mute);text-align:right">Sem III–VII</span></div><div class="frag" style="display:grid;grid-template-columns:230px 1fr 150px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:8px"><b style="color:var(--teal);font-size:19px">Analog &amp; devices</b><span style="font-size:16px;color:var(--mute)">Basic Electronics · Network Theory · Electronic Devices · Analog Circuits · Power Electronics &amp; Instrumentation</span><span style="font-size:15px;color:var(--mute);text-align:right">Sem I–IV</span></div><div class="frag" style="display:grid;grid-template-columns:230px 1fr 150px;gap:14px;align-items:center;background:rgba(255,181,71,.12);border:1px solid var(--amber);border-radius:12px;padding:9px 14px;margin-bottom:8px"><b style="color:var(--amber);font-size:19px">Code meets hardware</b><span style="font-size:16px;color:var(--ink)">Microcontroller + Lab · Embedded Systems + Lab · ARM Embedded Systems (open elective)</span><span style="font-size:15px;color:var(--amber);text-align:right">Sem IV and VI</span></div></div><div class="frag tile" style="border-color:var(--amber)"><p style="margin:0 0 14px;font-size:21px;">Five layers build the hardware of a device.</p><p style="margin:0 0 14px;font-size:21px;">One layer makes it all run: Microcontroller in Sem IV, Embedded Systems in Sem VI.</p><p style="margin:0 0 14px;font-size:21px;">Today you meet that layer on a modern 32-bit Wi-Fi chip, with an RTOS and the cloud.</p><p style="margin:0 0 14px;font-size:23px;color:var(--teal);font-weight:700">It is a preview of your Sem VI course and lab.</p></div></div></section><section class="slide " data-notes="The &#x27;why are we here&#x27; slide. Don&#x27;t read all six: ask the class which one matters most to them. Tile 1 is the strongest for III year ECE: Embedded Systems and its lab are in Sem VI. Tile 4 leads into the project ideas on the next slide."><div class="kick">The significance of today</div><h2>Why this day matters for a NAVKIS ECE student</h2><div class="grid3"><div class="frag tile"><b>A head start on Sem VI</b>The course and its lab come next semester. Today you start on a modern 32-bit Wi-Fi microcontroller.</div><div class="frag tile"><b>Your whole degree on one board</b>Devices, analog, digital, DSP, communication and networks all meet on a single ESP32.</div><div class="frag tile"><b>Theory you can watch run</b>ADC and PWM (Analog Circuits), a finite-state machine (Digital System Design), a serial bus (Digital Communication).</div><div class="frag tile"><b>Mini-project, internship, project</b>Sem VI–VIII need something you can demonstrate. A board costing a few hundred rupees gives examiners a working build.</div><div class="frag tile"><b>Careers in core electronics</b>Firmware, IoT, automotive and semiconductor teams hire ECE graduates who can write code for hardware.</div><div class="frag tile"><b>Your department&#x27;s mission</b>Industry interaction, research and entrepreneurship (Sem V&#x27;s Technological Innovation Management and Entrepreneurship) start from a prototype.</div></div></section><section class="slide " data-notes="Encourage them to pick one of these for the Sem VI Mini-Project or Project Work Phase 1–2. Every idea starts from code they write today, and the parts cost a few hundred rupees. The last one links to the Wi-Fi sensing papers later in the deck."><div class="kick">Project work &middot; Sem VI&ndash;VIII</div><h2>From today&rsquo;s labs to your final-year project</h2><div class="grid3"><div class="frag tile"><b>Smart drip irrigation</b>Soil-moisture sensor, valve, MQTT schedule<br><span style="color:var(--teal)">Builds on Labs 3, 5 + Sensors &amp; Signal Conditioning</span></div><div class="frag tile"><b>Energy monitor</b>Current sensor, dashboard, overload alerts<br><span style="color:var(--teal)">Builds on Labs 3, 5 + Power Electronics &amp; Instrumentation</span></div><div class="frag tile"><b>Campus weather network</b>DHT22 + OLED nodes, logged to the cloud<br><span style="color:var(--teal)">Builds on Labs 4, 5 + IoT &amp; Wireless Sensor Networks</span></div><div class="frag tile"><b>Machine-health monitor</b>Vibration sensor, FFT and an anomaly alert<br><span style="color:var(--teal)">Builds on Labs 3, 6 + Digital Signal Processing</span></div><div class="frag tile"><b>Vehicle tracker</b>GPS + accelerometer, crash alert over Wi-Fi<br><span style="color:var(--teal)">Builds on Labs 2, 5 + Automotive Electronics</span></div><div class="frag tile"><b>Wi-Fi presence sensing</b>Detect people from Wi-Fi channel data (CSI)<br><span style="color:var(--teal)">Builds on Lab 5 + Digital Communication</span></div></div><p class="frag sub center">Each idea starts from code you write today, and fits the Sem VI Mini-Project and Project Work Phase 1–2.</p></section><section class="slide " data-notes="A common student question: where is main()? It is in the core library. Mention that on the ESP32, loop() runs as a FreeRTOS task on core 1."><h2>The Arduino &ldquo;superloop&rdquo;</h2><div class="two">
+<pre class="code"><span class="c">// what you write</span>
+<span class="k">void</span> <span class="f">setup</span>() {   <span class="c">// once, at power-on</span>
+  pinMode(26, OUTPUT);
+}
+<span class="k">void</span> <span class="f">loop</span>() {    <span class="c">// forever</span>
+  digitalWrite(26, HIGH);
+  delay(500);
+  digitalWrite(26, LOW);
+  delay(500);
+}</pre>
+<pre class="code frag"><span class="c">// what the framework hides</span>
+<span class="k">int</span> <span class="f">main</span>() {
+  initHardware();   <span class="c">// clocks, flash, RAM</span>
+  setup();
+  <span class="k">while</span> (<span class="k">true</span>) {
+    loop();
+  }
+}
+<span class="c">// On the ESP32, loop() actually runs
+// inside a FreeRTOS task (more later).</span></pre></div>
+<p class="frag center sub">There is no &ldquo;exit&rdquo;. Firmware never ends &mdash; it only resets.</p></section><section class="slide " data-notes="Cross-compilation is the key term. On a real board you&#x27;d click Upload in the Arduino IDE, and esptool writes the binary to flash over the USB-to-serial chip."><h2>From C++ to silicon: the toolchain</h2>
+<svg viewBox="0 0 1000 260" class="diag"><defs><marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="#9fb0d3"/></marker></defs>
+<g class="frag"><rect x="10" y="70" width="140" height="100" rx="12" class="bx"/><text x="80" y="115" class="t1" style="font-size:22px">sketch.ino</text><text x="80" y="145" class="t2" style="font-size:15px">your code</text><line x1=152 y1=120 x2=172 y2=120 class=ln marker-end=url(#ar2) /></g><g class="frag"><rect x="175" y="70" width="140" height="100" rx="12" class="bx"/><text x="245" y="115" class="t1" style="font-size:22px">C++ + libs</text><text x="245" y="145" class="t2" style="font-size:15px">preprocess</text><line x1=317 y1=120 x2=337 y2=120 class=ln marker-end=url(#ar2) /></g><g class="frag"><rect x="340" y="70" width="140" height="100" rx="12" class="bx"/><text x="410" y="115" class="t1" style="font-size:22px">xtensa-gcc</text><text x="410" y="145" class="t2" style="font-size:15px">cross-compile</text><line x1=482 y1=120 x2=502 y2=120 class=ln marker-end=url(#ar2) /></g><g class="frag"><rect x="505" y="70" width="140" height="100" rx="12" class="bx"/><text x="575" y="115" class="t1" style="font-size:22px">firmware.elf</text><text x="575" y="145" class="t2" style="font-size:15px">link + map</text><line x1=647 y1=120 x2=667 y2=120 class=ln marker-end=url(#ar2) /></g><g class="frag"><rect x="670" y="70" width="140" height="100" rx="12" class="bx"/><text x="740" y="115" class="t1" style="font-size:22px">.bin + esptool</text><text x="740" y="145" class="t2" style="font-size:15px">flash over USB</text><line x1=812 y1=120 x2=832 y2=120 class=ln marker-end=url(#ar2) /></g><g class="frag"><rect x="835" y="70" width="140" height="100" rx="12" class="bx hlb"/><text x="905" y="115" class="t1" style="font-size:22px">Silicon</text><text x="905" y="145" class="t2" style="font-size:15px">bootloader runs it</text></g>
+<g class="frag"><text x="500" y="222" class="t2" style="font-size:20px"><tspan fill="#2ee6c5" font-weight="700">Cross-compiling</tspan>: built on an x86 laptop, runs on an Xtensa CPU.</text><text x="500" y="252" class="t2" style="font-size:20px">Wokwi does all of this in the cloud when you press &#9654;.</text></g></svg></section><section class="slide " data-notes="Do this live on the projector, slowly. Most of the room should follow along. Then move into Session 2 after the tea break."><div class="kick">Live demo</div><h2>First blink, together</h2><div class="two"><ol class="frag-list">
+<li class="frag">wokwi.com &rarr; <b>New project</b> &rarr; <b>MicroPython on ESP32</b></li>
+<li class="frag">Look at the two tabs: <code>main.py</code> and <code>diagram.json</code></li>
+<li class="frag">Click <b>+</b> to add an LED and a resistor, then draw wires</li>
+<li class="frag">Press &#9654; &mdash; watch the Serial Monitor</li>
+<li class="frag">Change one number, run again. <i>That is the whole development loop.</i></li></ol>
+<div class="labbox"><div class="lbl">Tip</div><div style="font-size:20px">The <code>diagram.json</code> tab <i>is</i> the circuit. In the labs you just paste ours, so nobody loses time on wiring.</div></div></div></section><section class="slide section" data-notes=""><div class="secno">02</div><h1 class="sect">Talking to pins</h1><p class="sub">GPIO &middot; interrupts &middot; analog</p></section><section class="slide " data-notes="Ohm&#x27;s law is all the electronics needed today. Without the resistor, the LED tries to draw a large current, which can damage the pin or the LED."><h2>GPIO: a pin you control from code</h2><div class="two"><div>
+<ul class="frag-list"><li class="frag"><b>Output</b>: <code>digitalWrite(26, HIGH)</code> &rarr; pin at 3.3 V</li>
+<li class="frag"><b>Input</b>: <code>digitalRead(4)</code> &rarr; is the voltage high or low?</li>
+<li class="frag">Under the hood, it is one register write:</li></ul>
+<pre class="code frag"><span class="c">// friendly</span>
+digitalWrite(26, HIGH);
+<span class="c">// what it boils down to on the ESP32</span>
+GPIO.out_w1ts = (1 &lt;&lt; 26); <span class="c">// "write 1 to set"</span></pre>
+<p class="frag"><span class="tagp deep">Deep dive</span> &ldquo;w1ts&rdquo; registers set bits atomically, so you never need a read-modify-write.</p></div>
+<svg viewBox="0 0 420 380" class="diag"><text x="210" y="30" class="t2">LED on GPIO 26</text>
+<rect x="40" y="60" width="110" height="260" rx="10" class="bx"/><text x="95" y="195" class="t1" style="font-size:22px">ESP32</text>
+<circle cx="150" cy="110" r="6" fill="#2ee6c5"/><text x="120" y="100" class="t2" style="font-size:15px">26</text>
+<path d="M156,110 H200" class="ln"/><rect x="200" y="98" width="70" height="24" rx="4" fill="none" stroke="#ffb547" stroke-width="3"/><text x="235" y="90" class="t2" style="font-size:15px">220 &Omega;</text>
+<path d="M270,110 H320 V150" class="ln"/><polygon points="300,150 340,150 320,185" fill="#ff6b8a" class="glow"/><line x1="300" y1="187" x2="340" y2="187" stroke="#ff6b8a" stroke-width="3"/>
+<path d="M320,187 V280 H156" class="ln"/><circle cx="150" cy="280" r="6" fill="#9fb0d3"/><text x="118" y="300" class="t2" style="font-size:15px">GND</text>
+<text x="230" y="350" class="t2 frag" style="font-size:17px" fill="#2ee6c5">I = (3.3 &minus; 2.0) / 220 &asymp; 6 mA</text></svg></div></section><section class="slide " data-notes="This non-blocking pattern is the most important habit in embedded programming. Mention that millis() - last stays correct even when millis() overflows after 49 days, because of unsigned arithmetic."><h2>The problem with <code>delay()</code></h2><div class="two">
+<div><p class="big">While <code>delay(500)</code> runs, the CPU does <span class="hl">nothing</span>: no button checks, no sensor reads, no Wi-Fi.</p>
+<p class="frag">Two LEDs at different rates? Impossible to do cleanly with delays.</p>
+<p class="frag big">Fix: don&rsquo;t <i>wait</i> &mdash; <span class="hl">check the clock</span>.</p></div>
+<pre class="code frag"><span class="k">unsigned long</span> last = 0;
+
+<span class="k">void</span> <span class="f">loop</span>() {
+  <span class="k">if</span> (millis() - last &gt;= 500) {
+    last = millis();
+    toggleLed();
+  }
+  <span class="c">// free to do other work here!</span>
+  checkButton();
+  readSensor();
+}</pre></div></section><section class="slide " data-notes="Walk around. Common mistakes: forgetting to stop the simulation before editing, and pasting the diagram into the sketch tab."><div class="kick">Hands-on</div><h2>Lab 1: Hello, GPIO!</h2>
+<div class="two"><div><p class="big">Blink an LED, then blink two at different rates without <code>sleep()</code>.</p><ul class="frag-list"><li class=frag>Paste <code>diagram.json</code> and <code>main.py</code>, then press &#9654;</li><li class=frag>Change the timing; blink SOS</li><li class=frag>Try-this 3: green LED at 130 ms, red at 500 ms using <code>ticks_ms()</code></li></ul></div>
+<div class="labbox"><div class="lbl">Open</div><div class="url">labs.html#lab1</div><div class="lbl" style="margin-top:18px">Time</div><div class="url">15 minutes</div>
+<div class="lbl" style="margin-top:18px">Work in pairs</div><div style="color:var(--mute)">Driver types &middot; Navigator reads &middot; swap each lab</div></div></div></section><section class="slide " data-notes="Pressed = LOW feels backwards at first. This &#x27;active-low&#x27; convention is everywhere in hardware."><h2>Inputs: pull-ups and floating pins</h2><div class="two"><div>
+<ul class="frag-list"><li class="frag">An unconnected input <b>floats</b>: it picks up noise and reads random 0s and 1s.</li>
+<li class="frag">A <b>pull-up</b> resistor gently holds it HIGH.</li>
+<li class="frag">The button connects the pin to GND &rarr; reads <b>LOW</b> when pressed.</li>
+<li class="frag">The ESP32 has internal pull-ups: <code>pinMode(4, INPUT_PULLUP)</code></li></ul></div>
+<svg viewBox="0 0 420 380" class="diag"><text x="60" y="40" class="t2" style="font-size:16px">3.3 V</text><line x1="100" y1="50" x2="100" y2="90" class="ln"/>
+<rect x="88" y="90" width="24" height="70" rx="4" fill="none" stroke="#ffb547" stroke-width="3"/><text x="128" y="130" class="t2" style="font-size:15px" text-anchor="start">pull-up</text>
+<line x1="100" y1="160" x2="100" y2="210" class="ln"/><circle cx="100" cy="210" r="6" fill="#2ee6c5"/><line x1="100" y1="210" x2="300" y2="210" class="ln"/><text x="310" y="216" class="t2" style="font-size:16px" text-anchor="start">GPIO 4</text>
+<line x1="100" y1="210" x2="100" y2="260" class="ln"/><line class="sw" x1="100" y1="260" x2="140" y2="240" stroke="#ff6b8a" stroke-width="4"/><line x1="100" y1="290" x2="100" y2="330" class="ln"/><circle cx="100" cy="290" r="4" fill="#9fb0d3"/><circle cx="100" cy="260" r="4" fill="#9fb0d3"/>
+<text x="150" y="285" class="t2" style="font-size:15px" text-anchor="start">button</text><line x1="75" y1="330" x2="125" y2="330" class="ln"/><text x="80" y="360" class="t2" style="font-size:15px">GND</text></svg></div></section><section class="slide " data-notes="Ask: what are the risks of a long ISR? Other interrupts are delayed, and the main program freezes. Set a flag and get out."><h2>Polling vs. interrupts</h2><div class="two">
+<div class="tile frag"><b>&#x1F4F1; Polling</b>Checking your phone every few seconds for a message.<br><br><code>if (digitalRead(4) == LOW) &hellip;</code><br><br>Simple, but it wastes time and <i>misses</i> short events while the CPU is busy.</div>
+<div class="tile frag"><b>&#x1F514; Interrupt</b>The phone rings. You stop, answer, then carry on.<br><br><code>attachInterrupt(&hellip;, onButton, FALLING)</code><br><br>The hardware calls your <strong>ISR</strong> the moment the edge arrives.</div></div>
+<div class="frag rules"><b>ISR rules:</b> keep it tiny &middot; no <code>delay()</code>/<code>Serial</code> &middot; share data via <code>volatile</code> flags &middot; <code>IRAM_ATTR</code> keeps it in fast RAM</div></section><section class="slide " data-notes="Hardware fix: an RC filter plus a Schmitt trigger. Software fix: a time window, which is what Lab 2 uses."><h2>Switch bounce</h2><p class="big">One press &ne; one edge. Metal contacts <span class="hl">chatter</span> for a few milliseconds.</p>
+<svg viewBox="0 0 1000 250" class="diag"><text x="20" y="60" class="t2" style="font-size:16px" text-anchor="start">HIGH</text><text x="20" y="200" class="t2" style="font-size:16px" text-anchor="start">LOW</text>
+<path class="wave" d="M80,60 H300 V200 H315 V60 H330 V200 H340 V80 H350 V200 H365 V60 H372 V200 H900" fill="none" stroke="#2ee6c5" stroke-width="4"/>
+<g class="frag"><rect x="295" y="25" width="85" height="200" fill="rgba(255,107,138,.15)" stroke="#ff6b8a" stroke-dasharray="5 5"/><text x="337" y="245" class="t2" style="font-size:16px" fill="#ff6b8a">~5 ms of bounce</text></g>
+<g class="frag"><text x="650" y="120" class="t2" style="font-size:20px">Fix in software: ignore edges</text><text x="650" y="150" class="t2" style="font-size:20px">within 50&ndash;200 ms of the last one</text></g></svg></section><section class="slide " data-notes=""><div class="kick">Hands-on</div><h2>Lab 2: Buttons &amp; Interrupts</h2>
+<div class="two"><div><p class="big">Count presses with an ISR, compare it with polling, and see bounce for yourself.</p><ul class="frag-list"><li class=frag>Run the interrupt version and press the button</li><li class=frag>Set the debounce window to 0 &mdash; any double counts?</li><li class=frag>Add <code>time.sleep(3)</code> to both versions: which one misses presses?</li></ul></div>
+<div class="labbox"><div class="lbl">Open</div><div class="url">labs.html#lab2</div><div class="lbl" style="margin-top:18px">Time</div><div class="url">20 minutes</div>
+<div class="lbl" style="margin-top:18px">Work in pairs</div><div style="color:var(--mute)">Driver types &middot; Navigator reads &middot; swap each lab</div></div></div></section><section class="slide " data-notes="The staircase is exaggerated. Ask: what would an 8-bit ADC give? 256 levels, about 13 mV per step."><h2>The analog world &rarr; numbers: the ADC</h2><div class="two"><div>
+<ul class="frag-list"><li class="frag">Nature is analog: temperature, light, sound all give <i>voltages</i>.</li>
+<li class="frag">The <b>ADC</b> samples a voltage and returns a number.</li>
+<li class="frag">ESP32: <b>12-bit</b> &rarr; 2<sup>12</sup> = 4096 levels, 0&ndash;4095</li>
+<li class="frag">Resolution: 3.3 V / 4096 &asymp; <b>0.8 mV</b> per step</li>
+<li class="frag"><span class="tagp deep">Deep dive</span> The ESP32 ADC is not perfectly linear near 0 V and 3.3 V. Real products calibrate it, or use an external ADC.</li></ul></div>
+<svg viewBox="0 0 420 380" class="diag"><line x1="50" y1="330" x2="400" y2="330" class="ln"/><line x1="50" y1="330" x2="50" y2="30" class="ln"/>
+<text x="225" y="365" class="t2" style="font-size:15px">input voltage 0 &rarr; 3.3 V</text><text x="30" y="40" class="t2" style="font-size:14px" text-anchor="end">4095</text>
+<path class="frag" d="M50,330 L75,330 L75,305 L100,305 L100,280 L125,280 L125,255 L150,255 L150,230 L175,230 L175,205 L200,205 L200,180 L225,180 L225,155 L250,155 L250,130 L275,130 L275,105 L300,105 L300,80 L325,80 L325,55 L350,55 L350,30 L375,30 L375,5 L400,5 " fill="none" stroke="#2ee6c5" stroke-width="3"/>
+<line x1="50" y1="330" x2="400" y2="30" stroke="#ffb547" stroke-dasharray="6 6" class="frag"/><text x="300" y="200" class="t2 frag" style="font-size:15px" fill="#ffb547">ideal</text></svg></div></section><section class="slide " data-notes="The orange dashed lines show the average level. On the ESP32, the LEDC peripheral generates PWM in hardware, so the CPU is free."><h2>Numbers &rarr; the analog world: PWM</h2><div class="two"><div>
+<ul class="frag-list"><li class="frag">The pin can only be fully ON or OFF&hellip;</li>
+<li class="frag">&hellip;but switch it fast enough and the LED, motor or eye sees the <b>average</b>.</li>
+<li class="frag"><b>Duty cycle</b> = ON time / period</li>
+<li class="frag"><code>analogWrite(26, 64)</code> &rarr; 64/255 &asymp; 25 % &rarr; about 0.83 V average</li>
+<li class="frag">Used for LED dimming, motor speed, servo position, even audio</li></ul></div>
+<svg viewBox="0 0 420 380" class="diag"><g class="frag"><text x="10" y="70" class="t2" style="font-size:16px" text-anchor="start">25%</text><path d="M70,95 V45 H91.25 V95 H155 M155,95 V45 H176.25 V95 H240 M240,95 V45 H261.25 V95 H325 M325,95 V45 H346.25 V95 H410 " fill="none" stroke="#2ee6c5" stroke-width="3"/><line x1="70" y1="82.5" x2="410" y2="82.5" stroke="#ffb547" stroke-dasharray="5 5"/></g><g class="frag"><text x="10" y="180" class="t2" style="font-size:16px" text-anchor="start">50%</text><path d="M70,205 V155 H112.5 V205 H155 M155,205 V155 H197.5 V205 H240 M240,205 V155 H282.5 V205 H325 M325,205 V155 H367.5 V205 H410 " fill="none" stroke="#2ee6c5" stroke-width="3"/><line x1="70" y1="180.0" x2="410" y2="180.0" stroke="#ffb547" stroke-dasharray="5 5"/></g><g class="frag"><text x="10" y="290" class="t2" style="font-size:16px" text-anchor="start">75%</text><path d="M70,315 V265 H133.75 V315 H155 M155,315 V265 H218.75 V315 H240 M240,315 V265 H303.75 V315 H325 M325,315 V265 H388.75 V315 H410 " fill="none" stroke="#2ee6c5" stroke-width="3"/><line x1="70" y1="277.5" x2="410" y2="277.5" stroke="#ffb547" stroke-dasharray="5 5"/></g></svg></div></section><section class="slide " data-notes="Lunch follows this lab. Remind students to save (sign in) if they want to keep their work."><div class="kick">Hands-on</div><h2>Lab 3: ADC &amp; PWM</h2>
+<div class="two"><div><p class="big">Turn the knob, read the voltage, and dim the LED. Then build an automatic night lamp.</p><ul class="frag-list"><li class=frag>Watch <code>raw</code>, <code>volts</code> and <code>duty</code> in the Serial Monitor</li><li class=frag>Work out the ADC resolution</li><li class=frag>Night lamp with the LDR on GPIO 35</li></ul></div>
+<div class="labbox"><div class="lbl">Open</div><div class="url">labs.html#lab3</div><div class="lbl" style="margin-top:18px">Time</div><div class="url">20 minutes</div>
+<div class="lbl" style="margin-top:18px">Work in pairs</div><div style="color:var(--mute)">Driver types &middot; Navigator reads &middot; swap each lab</div></div></div></section><section class="slide section" data-notes=""><div class="secno">03</div><h1 class="sect">Talking to chips &amp; the cloud</h1><p class="sub">I&sup2;C &middot; sensors &middot; Wi-Fi &middot; MQTT</p></section><section class="slide " data-notes="For networks-minded students: I2C is a tiny multi-drop bus with addressing and ACKs. UART is the oldest and simplest of the three."><h2>How chips talk to each other</h2><table class="cmp">
+<tr><th></th><th>UART</th><th>I&sup2;C</th><th>SPI</th></tr>
+<tr class="frag"><td>Wires</td><td>TX, RX</td><td>SDA, SCL (shared)</td><td>MOSI, MISO, SCK + CS per device</td></tr>
+<tr class="frag"><td>Devices</td><td>2 (point-to-point)</td><td>many, by <b>7-bit address</b></td><td>many, by <b>chip-select</b></td></tr>
+<tr class="frag"><td>Speed</td><td>~115 kbit/s typical</td><td>100&ndash;400 kHz (up to 1 MHz)</td><td>10s of MHz</td></tr>
+<tr class="frag"><td>Seen in</td><td>Serial Monitor, GPS, GSM modules</td><td>sensors, OLEDs, RTC chips</td><td>SD cards, fast displays, flash</td></tr></table>
+<p class="frag center sub">Same idea as networking: a physical layer, framing, and addressing.</p></section><section class="slide " data-notes="Only the device whose address matches answers. The DHT22 in Lab 4 is NOT on I2C; it uses its own single-wire protocol, a common source of confusion."><h2>I&sup2;C in one picture</h2>
+<svg viewBox="0 0 1000 330" class="diag"><rect x="30" y="110" width="160" height="120" rx="12" class="bx hlb"/><text x="110" y="165" class="t1" style="font-size:22px">ESP32</text><text x="110" y="195" class="t2" style="font-size:15px">controller</text>
+<line x1="190" y1="140" x2="900" y2="140" stroke="#2ee6c5" stroke-width="4"/><text x="912" y="146" class="t2" style="font-size:16px" text-anchor="start">SDA</text>
+<line x1="190" y1="200" x2="900" y2="200" stroke="#ffb547" stroke-width="4"/><text x="912" y="206" class="t2" style="font-size:16px" text-anchor="start">SCL</text>
+<g class="frag"><line x1="330" y1="140" x2="330" y2="260" class="ln"/><line x1="360" y1="200" x2="360" y2="260" class="ln"/><rect x="280" y="260" width="130" height="60" rx="10" class="bx"/><text x="345" y="290" class="t2" style="font-size:16px">OLED</text><text x="345" y="310" class="t2" style="font-size:14px" fill="#2ee6c5">0x3C</text></g><g class="frag"><line x1="560" y1="140" x2="560" y2="260" class="ln"/><line x1="590" y1="200" x2="590" y2="260" class="ln"/><rect x="510" y="260" width="130" height="60" rx="10" class="bx"/><text x="575" y="290" class="t2" style="font-size:16px">RTC clock</text><text x="575" y="310" class="t2" style="font-size:14px" fill="#2ee6c5">0x68</text></g><g class="frag"><line x1="790" y1="140" x2="790" y2="260" class="ln"/><line x1="820" y1="200" x2="820" y2="260" class="ln"/><rect x="740" y="260" width="130" height="60" rx="10" class="bx"/><text x="805" y="290" class="t2" style="font-size:16px">BME280</text><text x="805" y="310" class="t2" style="font-size:14px" fill="#2ee6c5">0x76</text></g>
+<text x="500" y="60" class="t2 frag" style="font-size:20px">START &rarr; address + R/W &rarr; ACK &rarr; data bytes &rarr; STOP</text></svg></section><section class="slide " data-notes="Libraries are the usual stumbling block. Point to the libraries.txt shortcut on the lab page."><div class="kick">Hands-on</div><h2>Lab 4: Sensor + Display</h2>
+<div class="two"><div><p class="big">Read temperature and humidity from a DHT22 and show them on an I&sup2;C OLED, with an alarm LED.</p><ul class="frag-list"><li class=frag>Add the ssd1306.py driver file next to main.py</li><li class=frag>Click the DHT22 and push it above 35 &deg;C</li><li class=frag>Add &deg;F, a humidity bar, and hysteresis</li></ul></div>
+<div class="labbox"><div class="lbl">Open</div><div class="url">labs.html#lab4</div><div class="lbl" style="margin-top:18px">Time</div><div class="url">20 minutes</div>
+<div class="lbl" style="margin-top:18px">Work in pairs</div><div style="color:var(--mute)">Driver types &middot; Navigator reads &middot; swap each lab</div></div></div></section><section class="slide " data-notes=""><h2>From device to cloud</h2>
+<svg viewBox="0 0 1000 300" class="diag"><defs><marker id="ar3" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="#9fb0d3"/></marker></defs>
+<g class="frag"><rect x="20" y="90" width="200" height="110" rx="14" class="bx"/><text x="120" y="140" class="t1" style="font-size:22px">ESP32 + DHT22</text><text x="120" y="172" class="t2" style="font-size:15px">publishes JSON</text><line x1=222 y1=145 x2=262 y2=145 class=ln marker-end=url(#ar3) /></g><g class="frag"><rect x="265" y="90" width="200" height="110" rx="14" class="bx"/><text x="365" y="140" class="t1" style="font-size:22px">Wi-Fi AP</text><text x="365" y="172" class="t2" style="font-size:15px">Wokwi-GUEST</text><line x1=467 y1=145 x2=507 y2=145 class=ln marker-end=url(#ar3) /></g><g class="frag"><rect x="510" y="90" width="200" height="110" rx="14" class="bx hlb"/><text x="610" y="140" class="t1" style="font-size:22px">MQTT broker</text><text x="610" y="172" class="t2" style="font-size:15px">broker.hivemq.com</text><line x1=712 y1=145 x2=752 y2=145 class=ln marker-end=url(#ar3) /></g><g class="frag"><rect x="755" y="90" width="200" height="110" rx="14" class="bx"/><text x="855" y="140" class="t1" style="font-size:22px">Dashboard</text><text x="855" y="172" class="t2" style="font-size:15px">your phone / projector</text></g>
+<text x="500" y="260" class="t2 frag" style="font-size:19px">and back again: dashboard &rarr; broker &rarr; ESP32 &rarr; LED</text></svg></section><section class="slide " data-notes="This is the publish-subscribe pattern from software design, running over TCP. Mention QoS 0/1/2 only if asked."><h2>MQTT: publish / subscribe</h2><div class="two"><div>
+<ul class="frag-list"><li class="frag">Devices never talk directly. They talk to a <b>broker</b>.</li>
+<li class="frag"><b>Publish</b> a message to a <b>topic</b>: <code>navkis/ews2026/ravi/data</code></li>
+<li class="frag"><b>Subscribe</b> to topics, with wildcards: <code>navkis/ews2026/+/data</code></li>
+<li class="frag">Tiny headers and one long-lived TCP connection &rarr; ideal for small, battery-powered devices</li>
+<li class="frag">Compare with HTTP: the device would have to keep <i>asking</i> &ldquo;any commands for me?&rdquo;</li></ul></div>
+<svg viewBox="0 0 420 380" class="diag"><circle cx="210" cy="190" r="70" class="bx hlb"/><text x="210" y="198" class="t1" style="font-size:22px">broker</text>
+<g class="frag"><rect x="20" y="30" width="120" height="50" rx="10" class="bx"/><text x="80" y="61" class="t2" style="font-size:15px">ESP32 Ravi</text><line x1="80" y1="80" x2="151.5" y2="129.25" class="ln"/></g><g class="frag"><rect x="280" y="30" width="120" height="50" rx="10" class="bx"/><text x="340" y="61" class="t2" style="font-size:15px">ESP32 Asha</text><line x1="340" y1="80" x2="268.5" y2="129.25" class="ln"/></g><g class="frag"><rect x="20" y="300" width="120" height="50" rx="10" class="bx"/><text x="80" y="331" class="t2" style="font-size:15px">Dashboard</text><line x1="80" y1="300" x2="151.5" y2="250.75" class="ln"/></g><g class="frag"><rect x="280" y="300" width="120" height="50" rx="10" class="bx"/><text x="340" y="331" class="t2" style="font-size:15px">Phone app</text><line x1="340" y1="300" x2="268.5" y2="250.75" class="ln"/></g></svg></div></section><section class="slide " data-notes="THE moment of the day. Put the dashboard on the projector. Count devices as they come online. Then press All ON. Security point: the public broker is open, so no personal data."><div class="kick">Hands-on</div><h2>Lab 5: Your ESP32 on the Internet</h2>
+<div class="two"><div><p class="big">Put your name in main.py, run it, and watch yourself appear on the class dashboard. Then let a friend switch your LED.</p><ul class="frag-list"><li class=frag>Set <code>STUDENT = "your-name"</code></li><li class=frag>Wokwi-GUEST Wi-Fi &rarr; HiveMQ public broker</li><li class=frag>Dashboard: <b>dashboard.html</b> (projector and your phone)</li></ul></div>
+<div class="labbox"><div class="lbl">Open</div><div class="url">labs.html#lab5</div><div class="lbl" style="margin-top:18px">Time</div><div class="url">25 minutes</div>
+<div class="lbl" style="margin-top:18px">Work in pairs</div><div style="color:var(--mute)">Driver types &middot; Navigator reads &middot; swap each lab</div></div></div></section><section class="slide " data-notes=""><div class="kick">Live</div><h2>Class dashboard</h2><div class="two"><div>
+<p class="big">Scan to open it on your phone, then switch <i>someone else&rsquo;s</i> LED.</p>
+<p class="frag">Everything you just built &mdash; sensor, firmware, Wi-Fi, broker, web client &mdash; is the architecture of real IoT products: smart meters, cold-chain trackers, farm sensors.</p></div>
+<div class="labbox" style="text-align:center"><div class="qrbox" data-qr="dashboard.html"></div><div class="url" style="margin-top:10px">dashboard.html</div></div></div></section><section class="slide section" data-notes=""><div class="secno">04</div><h1 class="sect">Challenge &amp; beyond the superloop</h1><p class="sub">RTOS &middot; real products &middot; careers</p></section><section class="slide " data-notes="Form teams. Circulate. At 3:20 show the reference solution and ask the best two teams to demo."><div class="kick">Mini-challenge &middot; teams of 2&ndash;3 &middot; 40 min</div><h2>Smart Street Light</h2><div class="two">
+<table class="cmp"><tr><th>Condition</th><th>Lamp</th></tr><tr class="frag"><td>Daylight</td><td>OFF</td></tr><tr class="frag"><td>Night, nobody around</td><td>DIM (20 %)</td></tr><tr class="frag"><td>Night + motion</td><td>FULL for 5 s after the last motion</td></tr></table>
+<div class="labbox"><div class="lbl">Parts</div><div style="font-size:20px">LDR on GPIO 35 &middot; PIR on GPIO 27 &middot; lamp on GPIO 26</div>
+<div class="lbl" style="margin-top:16px">Score</div><div style="font-size:18px">3 day/night &middot; +3 dim/full &middot; +2 <code>ticks_ms()</code> hold &middot; +2 print on change &middot; <b>+3</b> publish to the dashboard</div></div></div></section><section class="slide " data-notes="Map it to Real Time Systems (Sem VII elective) and the Operating System elective: process states (ready, running, blocked), priority scheduling, producer-consumer via a queue. Lab 6 is the hands-on version."><h2>When the superloop is not enough: RTOS</h2><div class="two"><div>
+<ul class="frag-list"><li class="frag">A <b>task</b> is like a thread with its own stack and a priority</li>
+<li class="frag">The <b>scheduler</b> runs the highest-priority ready task, preemptively</li>
+<li class="frag"><code>vTaskDelay()</code> blocks only <i>this</i> task &mdash; the others keep running</li>
+<li class="frag"><b>Queues</b> and <b>semaphores</b> pass data and protect shared resources</li>
+<li class="frag">The ESP32 runs FreeRTOS on <b>2 cores</b>. Wi-Fi already lives in its own tasks!</li></ul></div>
+<svg viewBox="0 0 420 380" class="diag"><text x="10" y="70" class="t2" style="font-size:15px" text-anchor="start">sensor (P2)</text><text x="10" y="150" class="t2" style="font-size:15px" text-anchor="start">blink (P1)</text><text x="10" y="230" class="t2" style="font-size:15px" text-anchor="start">print (P1)</text><text x="10" y="310" class="t2" style="font-size:15px" text-anchor="start">idle</text>
+<rect class="frag" x="110" y="50" width="28" height="30" rx="4" fill="#ff6b8a"/><rect class="frag" x="140" y="130" width="28" height="30" rx="4" fill="#2ee6c5"/><rect class="frag" x="170" y="210" width="28" height="30" rx="4" fill="#ffb547"/><rect class="frag" x="200" y="290" width="28" height="30" rx="4" fill="#25335a"/><rect class="frag" x="230" y="290" width="28" height="30" rx="4" fill="#25335a"/><rect class="frag" x="260" y="130" width="28" height="30" rx="4" fill="#2ee6c5"/><rect class="frag" x="290" y="290" width="28" height="30" rx="4" fill="#25335a"/><rect class="frag" x="320" y="50" width="28" height="30" rx="4" fill="#ff6b8a"/><rect class="frag" x="350" y="210" width="28" height="30" rx="4" fill="#ffb547"/><rect class="frag" x="380" y="290" width="28" height="30" rx="4" fill="#25335a"/>
+<line x1="110" y1="350" x2="410" y2="350" class="ln"/><text x="260" y="372" class="t2" style="font-size:14px">time &rarr;</text></svg></div></section><section class="slide " data-notes=""><div class="kick">Hands-on</div><h2>Lab 6: Multitasking with asyncio</h2>
+<div class="two"><div><p class="big">Three tasks, one queue, one CPU. Then starve the others on purpose, and see why every task must give the CPU back.</p><ul class="frag-list"><li class=frag>blink, sensor and print tasks</li><li class=frag>Producer&ndash;consumer through a FIFO and an Event</li><li class=frag>Swap one await for a blocking sleep and watch the others starve</li></ul></div>
+<div class="labbox"><div class="lbl">Open</div><div class="url">labs.html#lab6</div><div class="lbl" style="margin-top:18px">Time</div><div class="url">bonus / at home</div>
+<div class="lbl" style="margin-top:18px">Work in pairs</div><div style="color:var(--mute)">Driver types &middot; Navigator reads &middot; swap each lab</div></div></div></section><section class="slide " data-notes="Show this right after Lab 6. Fast pairs move on to these instead of waiting. Good 3-minute live demo: open ECE 2, set F_SIGNAL to 900 and ask the class to predict what 1000 samples per second will show before you press run. The answer, about 100 Hz, is aliasing. These are optional and not graded."><div class="kick">For fast finishers and home</div><h2>ECE experiments: see the signals</h2><div class="grid3"><div class="frag tile"><b>ECE 1 · UART frames</b>Start bit, data bits LSB first and stop bit at 9600 baud. Then break it with a wrong baud rate.<br><span style="color:var(--teal)">Digital Communication</span></div><div class="frag tile"><b>ECE 2 · Sampling and aliasing</b>A 900 Hz signal sampled at 1000 Hz looks like 100 Hz. Predict it first, then measure.<br><span style="color:var(--teal)">Signals &amp; Systems · DSP</span></div><div class="frag tile"><b>ECE 3 · FIR vs IIR filters</b>Moving average vs exponential filter on a noisy signal: less noise always costs delay.<br><span style="color:var(--teal)">Digital Signal Processing</span></div></div><p class="frag sub center">Labs 2–4 also record real waveforms with Wokwi&#x27;s logic analyzer: switch bounce, PWM duty and the I²C address 0x3C, opened in PulseView.</p><p class="frag center" style="color:var(--teal);font-size:20px">labs.html &rarr; ECE 1 &middot; ECE 2 &middot; ECE 3</p></section><section class="slide " data-notes="Mention over-the-air updates and security: default passwords and unencrypted MQTT are behind many real IoT breaches."><h2>How real products are built</h2>
+<div class="flow"><div class="frag"><b>Prototype</b><small>dev board + breadboard (+ Wokwi!)</small></div><div class="frag"><b>Custom PCB</b><small>schematic, layout, power design</small></div><div class="frag"><b>Firmware</b><small>drivers, RTOS, state machines, tests</small></div><div class="frag"><b>Hardening</b><small>watchdog, brown-out, secure boot, OTA updates</small></div><div class="frag"><b>Certification</b><small>EMC, safety, radio (e.g. WPC in India)</small></div><div class="frag"><b>Production</b><small>factory test jigs, provisioning</small></div></div>
+<p class="frag center big">Writing the blink is 1 %. Making it work for 5 years in the field is the job.</p></section><section class="slide " data-notes="A starting reading list for project work and literature surveys. Tell students to search the title in Google Scholar or IEEE Xplore (through the college library). The Plauska et al. paper is a nice link to today: it measures exactly how much slower MicroPython is than C on the ESP32, which is the trade-off we made for a fast, queue-free lab."><div class="kick">Literature</div><h2>ESP32 in research (1/2): the platform</h2><table class="cmp" style="font-size:15px"><tr><th>Year</th><th>Authors</th><th>Venue</th><th>What they did with the ESP32</th></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2017</td><td>Maier, Sharp &amp; Vagapov</td><td>IEEE ITA-17</td><td>Compared the ESP32 with rival IoT modules, with an example oscilloscope application</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2019</td><td>Babiuch, Foltýnek &amp; Smutný</td><td>IEEE ICCC</td><td>Data measurement and processing on the ESP32, with a local display</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2019</td><td>Foltýnek, Babiuch &amp; Šuránek</td><td>Measurement and Control (SAGE)</td><td>Dual-core design: one core measures, the other handles Wi-Fi</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2019</td><td>Aghenta &amp; Iqbal</td><td>Electronics (MDPI)</td><td>Low-cost, open-source IoT SCADA system using the ESP32</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2021</td><td>Eridani, Rochim &amp; Cesara</td><td>IEEE int. seminar</td><td>ESP-NOW vs Wi-Fi vs Bluetooth: range, speed, latency, energy</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2023</td><td>Plauska, Liutkevičius &amp; Janavičiūtė</td><td>Electronics (MDPI)</td><td>C/C++, MicroPython, Rust and TinyGo timed on FFT, CRC, SHA, IIR, FIR</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2023</td><td>Magzym, …, Fafoutis &amp; Zorbas</td><td>IEEE BlackSeaCom</td><td>Synchronised ESP-NOW to cut the energy use of end devices</td></tr></table><p style="margin-top:12px;font-size:16px;color:var(--mute)">Search any title on Google Scholar or IEEE Xplore. More: ESP32 + your topic → a ready literature survey.</p></section><section class="slide " data-notes="The Wi-Fi sensing work is a favourite with ECE students: the ESP32&#x27;s Wi-Fi radio itself becomes a sensor that can detect people moving in a room. TinyML on the ESP32 links to the AI/ML course. Each paper here could seed a final-year project."><div class="kick">Literature</div><h2>ESP32 in research (2/2): sensing and AI</h2><table class="cmp" style="font-size:15px"><tr><th>Year</th><th>Authors</th><th>Venue</th><th>What they did with the ESP32</th></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2020</td><td>Hernandez &amp; Bulut</td><td>IEEE WoWMoM</td><td>ESP32 CSI Toolkit: Wi-Fi sensing on a standalone ESP32</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2023</td><td>Hernandez &amp; Bulut</td><td>IEEE Commun. Surveys &amp; Tutorials</td><td>Low-cost Wi-Fi sensing system on the ESP32 with on-device inference</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2021</td><td>David et al. (Google)</td><td>MLSys</td><td>TensorFlow Lite Micro: the TinyML framework, ported to the ESP32</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2022</td><td>Sineglazov &amp; Khotsyanovsky</td><td>Electronics and Control Systems</td><td>Image classification with a CNN on the camera-equipped ESP32</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2020</td><td>Babiuch &amp; Postulka</td><td>IntechOpen (book chapter)</td><td>Smart-home monitoring with ESP32 nodes, MQTT and a web server</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2023</td><td>Hercog, Lerher, Truntič &amp; Težak</td><td>Sensors (MDPI)</td><td>ESP32 prototyping kit for teaching IoT design to engineering students</td></tr><tr class="frag"><td style="color:var(--teal);font-weight:700">2024</td><td>Tran et al.</td><td>J. Eng. Technol. Sci.</td><td>High-rate data acquisition by streaming samples through the ESP32&#x27;s built-in I²S</td></tr></table><p style="margin-top:12px;font-size:16px;color:var(--mute)">Search any title on Google Scholar or IEEE Xplore. More: ESP32 + your topic → a ready literature survey.</p></section><section class="slide " data-notes="Close the research section on breadth: the same board and the same skills from today appear in every one of these areas. Ask which area they would pick for their project."><div class="kick">Use cases</div><h2>Where the ESP32 is used</h2><div class="grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px"><div class="frag tile"><b>Smart home and buildings</b>Lights, locks, energy meters, MQTT dashboards</div><div class="frag tile"><b>Environment and air quality</b>PM2.5, gas and weather stations that report to the cloud</div><div class="frag tile"><b>Agriculture</b>Soil moisture, irrigation valves, farm weather</div><div class="frag tile"><b>Industry and SCADA</b>Low-cost monitoring of machines, panels and solar plants</div><div class="frag tile"><b>Wi-Fi sensing</b>Presence, activity and location from Wi-Fi signals (CSI)</div><div class="frag tile"><b>Edge AI (TinyML)</b>Keyword spotting and person detection on the chip</div><div class="frag tile"><b>Wireless research</b>ESP-NOW, BLE and Wi-Fi measured for range and energy</div><div class="frag tile"><b>Teaching labs</b>Cheap, Wi-Fi-ready kits for IoT and embedded courses</div></div></section><section class="slide " data-notes="This workshop is organised by the Skill Development Cell. Spend a minute here: list the six skills they now have, then point to where they lead. ESSCI (the Electronics Sector Skills Council of India) publishes NSQF Level 5 job roles for IoT, such as Embedded Full-Stack IoT Analyst and IoT Hardware Analyst; today&#x27;s labs are their entry skills. Encourage students to keep their lab code and challenge solution on GitHub as evidence of skill, along with the certificate."><div class="kick">Skill Development Cell</div><h2>How today supports skill development</h2><p style="margin:0 0 8px;font-size:17px;color:var(--amber);font-weight:700">Skills you leave with</p><div class="grid3"><div class="frag tile"><b>Embedded programming</b>MicroPython on a 32-bit microcontroller, with C versions of every lab</div><div class="frag tile"><b>Interfacing</b>GPIO, interrupts, ADC, PWM and I²C sensors and displays</div><div class="frag tile"><b>IoT networking</b>Wi-Fi, MQTT and a live web dashboard</div><div class="frag tile"><b>Debugging and testing</b>Serial monitor, pinouts, datasheets and stretch tasks</div><div class="frag tile"><b>Design and teamwork</b>The Smart Street Light challenge, built and demonstrated in teams</div><div class="frag tile"><b>Learning on your own</b>Take-home labs, a roadmap and every lab online after the day</div></div><p style="margin:16px 0 8px;font-size:17px;color:var(--amber);font-weight:700">Where they lead</p><div class="grid3"><div class="frag tile" style="border-color:var(--teal)"><b style="color:var(--teal)">National skill standards</b>ESSCI's NSQF Level 5 IoT job roles, such as Embedded Full-Stack IoT Analyst, start from today's skills.</div><div class="frag tile" style="border-color:var(--teal)"><b style="color:var(--teal)">Skill India Mission</b>Its aim is industry-relevant skills for employability: exactly what a hands-on day like this builds.</div><div class="frag tile" style="border-color:var(--teal)"><b style="color:var(--teal)">Next steps at NAVKIS</b>The department&#x27;s IoT Skill Lab, the Sem VI Mini-Project and internships turn today&#x27;s labs into a portfolio.</div></div></section><section class="slide " data-notes="Bengaluru is one of the world&#x27;s largest embedded and automotive software hubs, a 3-4 hour drive from Hassan."><h2>Careers for an ECE graduate</h2><div class="grid3">
+<div class="frag tile"><b>Firmware engineer</b>C/C++, RTOS, drivers</div>
+<div class="frag tile"><b>IoT developer</b>device + cloud + app, end to end</div>
+<div class="frag tile"><b>Embedded Linux</b>Yocto, kernel drivers, BSPs</div>
+<div class="frag tile"><b>Automotive software</b>AUTOSAR, functional safety, EV systems</div>
+<div class="frag tile"><b>Edge AI / TinyML</b>ML models on microcontrollers</div>
+<div class="frag tile"><b>Silicon &amp; board validation</b>chip bring-up, hardware-in-the-loop testing</div></div>
+<p class="frag sub center">Example employers in India (examples, not a ranking): Bosch, Continental, Qualcomm, Texas Instruments, NXP, Infineon, Tata Elxsi, KPIT, L&amp;T Technology Services, Ather Energy &mdash; plus many IoT and drone start-ups in Bengaluru.</p></section><section class="slide " data-notes="The last step matters most for placements: one complete, documented project beats ten half-finished ones."><h2>Your roadmap after today</h2><div class="road"><div class="frag"><span>1</span><b>Replay the labs</b><small>in Wokwi; change one thing in each</small></div><div class="frag"><span>2</span><b>Buy an ESP32</b><small>plus a breadboard and a sensor kit</small></div><div class="frag"><span>3</span><b>Sharpen C</b><small>pointers, structs, bit operations</small></div><div class="frag"><span>4</span><b>Go lower</b><small>ESP-IDF or STM32, datasheets, a logic analyser</small></div><div class="frag"><span>5</span><b>Learn an RTOS</b><small>FreeRTOS, then Zephyr / embedded Linux</small></div><div class="frag"><span>6</span><b>Ship a project</b><small>on GitHub, with a README and a video</small></div></div></section><section class="slide " data-notes=""><div class="kick">Wrap-up</div><h2>Quiz &amp; feedback</h2><div class="two"><div>
+<p class="big">15 questions &middot; about 8 minutes &middot; on your phone</p>
+<p>Enter your name and USN, tick the labs you finished, then answer. Quiz + labs + challenge decide your certificate rating.</p></div>
+<div class="labbox" style="text-align:center"><div class="qrbox" data-qr="quiz.html"></div><div class="url" style="margin-top:10px">quiz.html</div></div></div></section><section class="slide title" data-notes=""><div class="title-wrap"><h1 class="hero" style="font-size:84px">Thank you!</h1><p class="tag">Blink. Sense. Connect. &mdash; now go build something.</p>
+<div class="byline"><b>Dr. Sathisha R N</b> &middot; satisharyan@gmail.com<br>Thanks to the Skill Development Cell and the Department of ECE, NAVKIS College of Engineering, Hassan</div></div>
+<div class="qrbox" data-qr="index.html" style="position:absolute;right:90px;bottom:90px"></div></section></div><div id="bar"></div><div id="num"></div><div id="help">&larr; &rarr; navigate &middot; N notes &middot; F fullscreen &middot; A reveal all</div><div id="notes"></div><script>
+const slides=[...document.querySelectorAll('.slide')];let cur=0;
+function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);document.getElementById('stage').style.transform=`translate(-50%,-50%) scale(${s})`}
+function frags(i){return [...slides[i].querySelectorAll('.frag')]}
+function go(i,showAll){i=Math.max(0,Math.min(slides.length-1,i));slides.forEach((s,k)=>{s.classList.toggle('on',k===i);s.classList.toggle('prev',k<i)});
+ frags(i).forEach(f=>f.classList.toggle('vis',!!showAll));cur=i;try{history.replaceState(null,'','#'+(i+1))}catch(e){}
+ document.getElementById('bar').style.width=((i+1)/slides.length*100)+'%';document.getElementById('num').textContent=(i+1)+' / '+slides.length;
+ document.getElementById('notes').innerHTML='<b>Notes ('+(i+1)+'):</b> '+(slides[i].dataset.notes||'&mdash;')}
+function next(){const h=frags(cur).find(f=>!f.classList.contains('vis'));if(h)h.classList.add('vis');else if(cur<slides.length-1)go(cur+1)}
+function prev(){const v=frags(cur).filter(f=>f.classList.contains('vis'));if(v.length)v[v.length-1].classList.remove('vis');else if(cur>0)go(cur-1,true)}
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();next()}
+ else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();prev()}
+ else if(e.key==='Home')go(0);else if(e.key==='End')go(slides.length-1,true);
+ else if(e.key==='n'||e.key==='N'){const n=document.getElementById('notes');n.style.display=n.style.display==='block'?'none':'block'}
+ else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+ else if(e.key==='a'||e.key==='A'){frags(cur).forEach(f=>f.classList.add('vis'))}});
+document.addEventListener('click',e=>{if(e.target.closest('a,button'))return;(e.clientX>innerWidth/3?next:prev)()});
+let tx=null;function safeHash(){try{return location.hash}catch(e){return ''}}addEventListener('touchstart',e=>tx=e.touches[0].clientX);addEventListener('touchend',e=>{if(tx===null)return;const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>50)(d<0?next:prev)();tx=null});
+addEventListener('resize',fit);fit();
+document.querySelectorAll('[data-qr]').forEach(el=>qrInto(el,siteUrl(el.dataset.qr),5));
+go(Math.max(0,(parseInt(safeHash().slice(1))||1)-1));
+addEventListener('hashchange',()=>go(Math.max(0,(parseInt(location.hash.slice(1))||1)-1)));
+</script></body></html>
