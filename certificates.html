@@ -43,6 +43,8 @@ window.WS = {
   /* Certificates (certificates.html) */
   hodName: "Dr. Manjunath D V",
   hodTitle: "Professor & HOD, Dept. of ECE",
+  sdcName: "Dr. Nandeesh G S",
+  sdcTitle: "Convener, Skill Development Cell",
   /* Optional: the Gradebook tab published as CSV (File > Share > Publish to web > Gradebook > CSV).
      Leave "" and upload the downloaded CSV file instead. */
   gradebookCsvUrl: "",
@@ -88,7 +90,7 @@ window.WS = {
   .cert .stars { margin-top:2mm; height:9mm; }
   .cert .appr { font-style:italic; font-size:14.5pt; color:var(--mute); margin:3mm 30mm 0; line-height:1.3; }
   .cert .sigs { position:absolute; left:0; right:0; bottom:9mm; display:flex; justify-content:space-around; }
-  .cert .sig { width:95mm; text-align:center; }
+  .cert .sig { width:82mm; text-align:center; }
   .cert .sig .line { border-top:0.3mm solid var(--ink); margin-bottom:2mm; }
   .cert .sig b { font-size:13.5pt; display:block; }
   .cert .sig span { font-size:10.5pt; color:var(--mute); display:block; line-height:1.3; }
@@ -113,6 +115,10 @@ window.WS = {
     <label>HoD name <input type="text" id="hod"></label>
     <label>HoD title <input type="text" id="hodt"></label>
   </div>
+  <div class="row">
+    <label>SDC name <input type="text" id="sdc"></label>
+    <label>SDC title <input type="text" id="sdct"></label>
+  </div>
   <div class="row"><button id="print">&#x1F5A8; Print all certificates</button><button class="ghost" id="sample">Show 3 samples</button><span id="status">No data loaded yet.</span></div>
   <div id="summary"></div>
 </div>
@@ -128,6 +134,7 @@ const RATINGS = {
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 $('hod').value = WS.hodName || ''; $('hodt').value = WS.hodTitle || 'Professor & HOD, Dept. of ECE';
+$('sdc').value = WS.sdcName || ''; $('sdct').value = WS.sdcTitle || 'Convener, Skill Development Cell';
 
 function parseCSV(text) {
   const rows = []; let row = [], f = '', q = false;
@@ -171,7 +178,8 @@ function cert(r, sample) {
       <div class="stars">${stars(n)}</div>
       <div class="appr">${appr}</div>
       <div class="sigs">
-        <div class="sig"><div class="line"></div><b>Dr. Sathisha R N</b><span>Resource Person · Assistant Professor, Dept. of ETE</span><span>Siddaganga Institute of Technology, Tumakuru</span></div>
+        <div class="sig"><div class="line"></div><b>Dr. Sathisha R N</b><span>Resource Person</span><span>Assistant Professor, Dept. of ETE</span><span>Siddaganga Institute of Technology, Tumakuru</span></div>
+        <div class="sig"><div class="line"></div><b>${esc($('sdc').value)}</b><span>${esc($('sdct').value)}</span><span>NAVKIS College of Engineering, Hassan</span></div>
         <div class="sig"><div class="line"></div><b>${esc($('hod').value)}</b><span>${esc($('hodt').value)}</span><span>NAVKIS College of Engineering, Hassan</span></div>
       </div>
     </div>
