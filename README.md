@@ -71,7 +71,7 @@ Students are graded out of 100:
 1. While teams demo the challenge (3:20), type each student's **Challenge /13** into your score list. Give **Participation /5** ratings during the afternoon.
 2. When the quiz closes (about 3:55), reload the Sheet and choose **Workshop → Build / update gradebook**. Paste in the challenge and participation marks, and correct **Labs /6** where needed. Total, Rating and Certificate No. update by themselves.
 3. Download the Gradebook tab as CSV (**File → Download → Comma-separated values**).
-4. Open **certificates.html** on the site (it's not linked from the student pages), load the CSV, check the preview, and press **Print all certificates**. Choose **A4 · Landscape · Margins: None** and tick **Background graphics**. Certificates are signed by Dr. Sathisha R N and Dr. Manjunath D V, Professor & HOD, Dept. of ECE; edit `hodName` and `hodTitle` in `config.js` if needed. The fonts are built into the page, so it prints the same even without internet.
+4. Open **certificates.html** on the site (it's not linked from the student pages), load the CSV, check the preview, and press **Print all certificates**. Choose **A4 · Landscape · Margins: None** and tick **Background graphics**. Certificates are signed by Dr. Sathisha R N (Resource Person), Dr. Nandeesh G S (Convener, Skill Development Cell) and Dr. Manjunath D V (Professor & HOD, Dept. of ECE); edit `sdcName`, `sdcTitle`, `hodName` and `hodTitle` in `config.js`, or the boxes on the page, if needed. The fonts are built into the page, so it prints the same even without internet.
 
 A backup generator, `grading/certgen.py`, makes the same certificates as PDF files from the CSV.
 
