@@ -34,10 +34,10 @@ The QR codes on the slides, handout and dashboard are generated from the page ad
 
 With shared links, students just click **Open this lab in Wokwi** instead of pasting files.
 
-For each folder in `labs/` (`lab1` … `lab8`, `ece1` … `ece3`, `challenge`; Labs 7–8 are take-home, so their links are optional):
+For each folder in `labs/` (`lab1` … `lab8`, `ece1` … `ece3`, `challenge`, `lab0x`; Labs 7–8 and `lab0x` are take-home, so their links are optional). **Leave `lab0` empty:** in Lab 0 students build the circuit themselves from a blank project, so it has no shared link.
 1. Sign in at wokwi.com and open **wokwi.com/projects/new/micropython-esp32**.
 2. Replace the contents of `diagram.json` and `main.py` with the files from the folder.
-3. For `lab4`, also add `ssd1306.py` (the **▾** menu next to the tabs → *New file…*) and paste its contents.
+3. For `lab4` and `lab0x`, also add `ssd1306.py` (the **▾** menu next to the tabs → *New file…*) and paste its contents.
 4. Press **Save**, then copy the project URL (for example `https://wokwi.com/projects/41234…`).
 5. Paste it into `assets/config.js` under `wokwi: { lab1: "…", … }`. Commit the change.
 

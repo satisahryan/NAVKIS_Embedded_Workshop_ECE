@@ -16,7 +16,7 @@ window.WS = {
      (see README), then paste its share link here. Leave "" to show students
      the copy-paste steps instead.                                           */
   wokwi: {
-    lab1: "", lab2: "", lab3: "", lab4: "", lab5: "", lab6: "", challenge: "", lab7: "", lab8: "", ece1: "", ece2: "", ece3: ""
+    lab0: "", lab0x: "", lab1: "", lab2: "", lab3: "", lab4: "", lab5: "", lab6: "", challenge: "", lab7: "", lab8: "", ece1: "", ece2: "", ece3: ""
   },
 
   /* MQTT broker for Lab 5 + the live class dashboard.

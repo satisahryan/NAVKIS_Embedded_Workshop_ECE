@@ -89,6 +89,17 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:24px 0;color:var
 .try.stretch{border-color:var(--amber);background:rgba(255,181,71,.06)}.try.stretch h4{color:var(--amber)}
 .try.stretch details{margin:4px 0 8px}.try.stretch summary{font-size:14px;color:var(--mute);cursor:pointer}
 .try.ece{border-color:var(--teal);background:rgba(46,230,197,.06)}.try.ece h4{color:var(--teal)}
+/* Block diagrams for the build challenges */
+.blk{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin:14px 0}
+.blk .col{display:flex;flex-direction:column;gap:6px}
+.blk .b{border:1px solid var(--line,#25335a);border-radius:10px;padding:6px 10px;font-size:14px;background:rgba(255,255,255,.03)}
+.blk .b small{display:block;color:var(--mute);font-size:12px}
+.blk .mcu{border:2px solid var(--teal);border-radius:14px;padding:14px 16px;text-align:center;font-weight:700;color:var(--teal);min-width:120px}
+.blk .mcu small{display:block;font-weight:400;color:var(--mute);font-size:12px;margin-top:4px}
+.blk .in .b{border-left:3px solid var(--amber)}.blk .out .b{border-left:3px solid var(--teal)}
+.paper{border:1px solid var(--line,#25335a);border-radius:14px;padding:16px 18px;margin:18px 0}
+.paper .src{font-size:14px;color:var(--mute);margin:4px 0 10px}
+@media (max-width:700px){.blk{grid-template-columns:1fr}.blk .mcu{order:-1}}
 </style>
 <script>/* ==========================================================================
    Workshop configuration - edit this file only; every page reads from it.
@@ -108,7 +119,7 @@ window.WS = {
      (see README), then paste its share link here. Leave "" to show students
      the copy-paste steps instead.                                           */
   wokwi: {
-    lab1: "", lab2: "", lab3: "", lab4: "", lab5: "", lab6: "", challenge: "", lab7: "", lab8: "", ece1: "", ece2: "", ece3: ""
+    lab0: "", lab0x: "", lab1: "", lab2: "", lab3: "", lab4: "", lab5: "", lab6: "", challenge: "", lab7: "", lab8: "", ece1: "", ece2: "", ece3: ""
   },
 
   /* MQTT broker for Lab 5 + the live class dashboard.
@@ -2519,7 +2530,7 @@ var qrcode = function() {
 </head><body>
 <header id="topbar"></header>
 <main class="wrap"><section class="hero" style="padding-bottom:0"><div class="kicker">Hands-on labs &middot; ESP32 in the Wokwi simulator</div>
-<h1>Labs</h1><p class="lead">Labs 1&ndash;6 and the challenge are for the day; ECE 1&ndash;3 add signal-level experiments for fast finishers and for home. Every lab runs in your browser in <b>MicroPython</b> &mdash; no board, no installation and no waiting for a build. Work in pairs: one person types, the other reads the steps aloud. Swap after each lab.</p></section>
+<h1>Labs</h1><p class="lead">Labs 0&ndash;6 and the challenge are for the day. The <b>Build</b> tab has bigger circuits from published ESP32 projects, and ECE 1&ndash;3 add signal-level experiments, for fast finishers and for home. Every lab runs in your browser in <b>MicroPython</b> &mdash; no board, no installation and no waiting for a build. Work in pairs: one person types, the other reads the steps aloud. Swap after each lab.</p></section>
 <details class="card noprint" style="margin:0 0 16px"><summary><b>Know C but new to Python?</b> The 1-minute guide</summary>
 <table><tr><th>C (8051 / Arduino)</th><th>MicroPython</th></tr>
 <tr><td><code>{ ... }</code> braces</td><td>indentation (4 spaces) marks a block</td></tr>
@@ -2531,7 +2542,140 @@ var qrcode = function() {
 <tr><td><code>printf("%d", x);</code></td><td><code>print(x)</code> or <code>print("%d" % x)</code></td></tr>
 <tr><td><code>// comment</code></td><td><code># comment</code></td></tr></table>
 <p style="color:var(--mute);margin:8px 0 0">Every lab also has the same program in C (&ldquo;Same lab in Arduino C&rdquo;) for a real board.</p></details>
-<div class="tabs noprint"><button data-lab="lab1" class="on">Lab 1</button><button data-lab="lab2" class="">Lab 2</button><button data-lab="lab3" class="">Lab 3</button><button data-lab="lab4" class="">Lab 4</button><button data-lab="lab5" class="">Lab 5</button><button data-lab="lab6" class="">Lab 6</button><button data-lab="challenge" class="">Challenge</button><button data-lab="lab7" class="">Lab 7</button><button data-lab="lab8" class="">Lab 8</button><button data-lab="ece1" class="">ECE 1</button><button data-lab="ece2" class="">ECE 2</button><button data-lab="ece3" class="">ECE 3</button></div><section class="lab on" id="lab1">
+<div class="tabs noprint"><button data-lab="lab0" class="on">Lab 0</button><button data-lab="lab1" class="">Lab 1</button><button data-lab="lab2" class="">Lab 2</button><button data-lab="lab3" class="">Lab 3</button><button data-lab="lab4" class="">Lab 4</button><button data-lab="lab5" class="">Lab 5</button><button data-lab="lab6" class="">Lab 6</button><button data-lab="challenge" class="">Challenge</button><button data-lab="build" class="">Build</button><button data-lab="lab7" class="">Lab 7</button><button data-lab="lab8" class="">Lab 8</button><button data-lab="ece1" class="">ECE 1</button><button data-lab="ece2" class="">ECE 2</button><button data-lab="ece3" class="">ECE 3</button></div><section class="lab on" id="lab0">
+<span class="pill">Session 1 &middot; 15 min</span><h2 style="margin-top:8px">Lab 0: Build It Yourself</h2><p class="lead">Place parts, draw wires and run code on a circuit you built from an empty board &mdash; the skill every later lab (and your project) needs.</p>
+<h3>Start from an empty board</h3>
+<p>Open <a href="https://wokwi.com/projects/new/micropython-esp32" target="_blank" rel="noopener"><b>wokwi.com/projects/new/micropython-esp32</b></a>. You get an ESP32 and nothing else. Build this circuit:</p>
+<table><tr><th>Part</th><th>Part pin</th><th>ESP32 pin</th></tr><tr><td>Red LED (anode A, bent leg)</td><td>A &rarr; via 220 &Omega; resistor</td><td><code>GPIO 26</code></td></tr><tr><td>Red LED (cathode C)</td><td>C</td><td><code>GND</code></td></tr><tr><td>Push-button</td><td>1.l (top-left leg)</td><td><code>GPIO 4</code></td></tr><tr><td>Push-button</td><td>2.l (bottom-left leg)</td><td><code>GND</code></td></tr></table>
+<h3>How to place and wire</h3>
+<ol class="steps">
+<li><b>Add a part:</b> click the purple <b>+</b> button above the diagram, type <code>LED</code>, click it. Do the same for <code>Resistor</code> and <code>Pushbutton</code>.</li>
+<li><b>Move it:</b> drag the part. <b>Rotate:</b> select it and press <kbd>R</kbd>. <b>Delete:</b> select it and press <kbd>Delete</kbd>.</li>
+<li><b>Set a value:</b> click the resistor and change <i>Resistance</i> to <code>220</code> &Omega;. Click the LED to pick a colour.</li>
+<li><b>Draw a wire:</b> click a pin (its name pops up), then click the other pin. Click part-way to add a bend. Select a wire and press a number key (<kbd>0</kbd>&ndash;<kbd>9</kbd>) to change its colour.</li>
+<li><b>Paste the program</b> below into <code>main.py</code> and press the green <b>&#9654;</b>.</li>
+</ol>
+<div class="note">Wokwi saves every part and wire as text in the <b>diagram.json</b> tab. Open it: each wire is one line such as <code>["esp:26", "r1:1", "orange", []]</code>. That file is what you paste in the other labs.</div>
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code1">Copy</button></div><pre id="code1" data-hl="py"># Lab 0 - Build it yourself
+# Circuit you place and wire by hand in Wokwi:
+#   GPIO 26 -&gt; 220 ohm resistor -&gt; red LED (A) ; LED (C) -&gt; GND
+#   GPIO 4  -&gt; push-button -&gt; GND   (internal pull-up, so pressed = 0)
+from machine import Pin
+import time
+
+led = Pin(26, Pin.OUT)
+button = Pin(4, Pin.IN, Pin.PULL_UP)
+
+print(&quot;Lab 0 running: LED blinks slowly; hold the button to blink fast.&quot;)
+while True:
+    pressed = button.value() == 0
+    wait = 100 if pressed else 500      # milliseconds
+    led.value(not led.value())          # toggle the LED
+    time.sleep_ms(wait)</pre></div>
+<p><b>Expected:</b> the LED blinks every 0.5 s; hold the button and it blinks fast.</p>
+<details><summary>Stuck? Compare with the reference diagram.json</summary><div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code2">Copy</button></div><pre id="code2" data-hl="json">{
+  &quot;version&quot;: 1,
+  &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
+  &quot;editor&quot;: &quot;wokwi&quot;,
+  &quot;parts&quot;: [
+    {
+      &quot;type&quot;: &quot;board-esp32-devkit-c-v4&quot;,
+      &quot;id&quot;: &quot;esp&quot;,
+      &quot;top&quot;: 0,
+      &quot;left&quot;: 0,
+      &quot;attrs&quot;: {
+        &quot;env&quot;: &quot;micropython-20260406-v1.28.0&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-resistor&quot;,
+      &quot;id&quot;: &quot;r1&quot;,
+      &quot;top&quot;: 100,
+      &quot;left&quot;: 150,
+      &quot;attrs&quot;: {
+        &quot;value&quot;: &quot;220&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-led&quot;,
+      &quot;id&quot;: &quot;led1&quot;,
+      &quot;top&quot;: 30,
+      &quot;left&quot;: 250,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;red&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-pushbutton&quot;,
+      &quot;id&quot;: &quot;btn1&quot;,
+      &quot;top&quot;: 170,
+      &quot;left&quot;: -170,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;green&quot;
+      }
+    }
+  ],
+  &quot;connections&quot;: [
+    [
+      &quot;esp:TX&quot;,
+      &quot;$serialMonitor:RX&quot;,
+      &quot;&quot;,
+      []
+    ],
+    [
+      &quot;esp:RX&quot;,
+      &quot;$serialMonitor:TX&quot;,
+      &quot;&quot;,
+      []
+    ],
+    [
+      &quot;esp:26&quot;,
+      &quot;r1:1&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;r1:2&quot;,
+      &quot;led1:A&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;led1:C&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;btn1:1.l&quot;,
+      &quot;esp:4&quot;,
+      &quot;green&quot;,
+      []
+    ],
+    [
+      &quot;btn1:2.l&quot;,
+      &quot;esp:GND.1&quot;,
+      &quot;black&quot;,
+      []
+    ]
+  ],
+  &quot;dependencies&quot;: {}
+}</pre></div></details>
+<div class="try"><h4>Try this</h4><ol>
+<li>Wire the LED the wrong way round (swap A and C). What happens? Why does an LED care about direction?</li>
+<li>Add a <b>green LED</b> with its own 220 &Omega; resistor on <b>GPIO 27</b>, and make it blink opposite to the red one.</li>
+<li>Add a <b>buzzer</b>: pin <code>2</code> (+) to GPIO 25, pin <code>1</code> (&minus;) to GND. Make it beep while the button is held (<code>PWM(Pin(25), freq=2000, duty_u16=32768)</code>).</li>
+<li>Open <b>diagram.json</b> and change the LED colour from <code>red</code> to <code>blue</code> by editing text, not by clicking.</li>
+<li>Tidy up: colour power wires <b>red</b>, ground <b>black</b>, signals any other colour. Real engineers do this so others can read the circuit.</li>
+</ol></div>
+<details><summary>Answers</summary><ol>
+<li>It stays dark. An LED is a <b>diode</b>: current flows only from anode to cathode (forward bias).</li>
+<li><code>green = Pin(27, Pin.OUT)</code>, then <code>green.value(not led.value())</code> after each toggle.</li>
+<li>Create the PWM once; inside the loop set <code>duty_u16(32768)</code> when pressed and <code>duty_u16(0)</code> when not.</li>
+<li>In the LED's <code>"attrs"</code>, set <code>"color": "blue"</code>. The diagram updates when you switch tabs.</li>
+<li>No code change &mdash; but a readable circuit is half of debugging.</li></ol></details>
+<div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Bigger build:</b> try the <a href="#build">Build challenge</a> tab &mdash; a 14-part smart room node from a published paper.<details><summary>Hint</summary><p>Build it in stages: wire and test one part at a time, exactly as you would on a breadboard.</p></details></li></ol></div>
+</section><section class="lab " id="lab1">
 <span class="pill">Session 2 &middot; 15 min</span><h2 style="margin-top:8px">Lab 1: Hello, GPIO!</h2><p class="lead">Drive an output pin from code, see the cost of <code>sleep()</code>, and learn the non-blocking timing pattern every firmware engineer uses.</p>
 <h3>Circuit</h3>
 <table><tr><th>Part</th><th>Part pin</th><th>ESP32 pin</th></tr><tr><td>Red LED (anode, long leg)</td><td>A &rarr; via 220 &Omega; resistor</td><td><code>GPIO 26</code></td></tr><tr><td>Red LED (cathode)</td><td>C</td><td><code>GND</code></td></tr><tr><td>Green LED (for Try-this)</td><td>A &rarr; via 220 &Omega;</td><td><code>GPIO 27</code></td></tr></table>
@@ -2547,7 +2691,7 @@ var qrcode = function() {
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code1">Copy</button></div><pre id="code1" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code3">Copy</button></div><pre id="code3" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -2655,7 +2799,7 @@ var qrcode = function() {
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code2">Copy</button></div><pre id="code2" data-hl="py"># Lab 1 - Hello, GPIO!  (MicroPython on ESP32, Wokwi)
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code4">Copy</button></div><pre id="code4" data-hl="py"># Lab 1 - Hello, GPIO!  (MicroPython on ESP32, Wokwi)
 # An LED on GPIO 26 (through a 220 ohm resistor) blinks once a second.
 from machine import Pin
 import time
@@ -2675,7 +2819,7 @@ while True:
 <li>Blink <b>SOS</b> in Morse code (&middot;&middot;&middot; &mdash;&mdash;&mdash; &middot;&middot;&middot;).</li>
 <li>Now make the <b>green</b> LED on GPIO 27 blink every 130 ms <i>while</i> red blinks every 500 ms. Why is this painful with <code>sleep_ms()</code>?</li>
 </ol></div>
-<details><summary>Solution to 3 &mdash; the ticks pattern</summary><div class="codebox"><div class="bar"><b>solution_ticks.py</b><button class="btn small" data-copy="code3">Copy</button></div><pre id="code3" data-hl="py"># Lab 1 - Try-this solution: two LEDs at two rates WITHOUT sleep()
+<details><summary>Solution to 3 &mdash; the ticks pattern</summary><div class="codebox"><div class="bar"><b>solution_ticks.py</b><button class="btn small" data-copy="code5">Copy</button></div><pre id="code5" data-hl="py"># Lab 1 - Try-this solution: two LEDs at two rates WITHOUT sleep()
 # Red LED on GPIO 26 toggles every 500 ms, green LED on GPIO 27 every 130 ms.
 from machine import Pin
 import time
@@ -2695,7 +2839,7 @@ while True:
     # the loop never blocks, so the CPU is free for other work here</pre></div>
 <p><b>Big idea:</b> instead of <i>waiting</i>, remember <i>when</i> you last acted and check the clock with <code>time.ticks_ms()</code>. The loop stays free &mdash; this is cooperative multitasking. (In Arduino C the same function is called <code>millis()</code>.)</p></details>
 <div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Pedestrian crossing:</b> red for 5 s, green for 3 s, then green blinks 3 times and goes back to red &mdash; without <code>sleep_ms()</code>.<details><summary>Hint</summary><p>Keep a <code>state</code> variable and a table of (LED, duration). When <code>ticks_diff()</code> passes the duration, move to the next state. You have just written a <b>finite-state machine</b> (Automata Theory!).</p></details></li><li><b>Morse for any word:</b> blink <code>NAVKIS</code> using a dictionary such as <code>{'N': '-.', 'A': '.-', ...}</code>. Dot = 200 ms, dash = 600 ms.<details><summary>Hint</summary><p>First turn the word into a list of (on/off, milliseconds) pairs, then play the list with the ticks pattern. Separating <i>data</i> from <i>timing</i> is how real firmware does it.</p></details></li></ol></div>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code4">Copy</button></div><pre id="code4" data-hl="c">// Lab 1 - Hello, GPIO!  (ESP32 DevKitC V4 in Wokwi)
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code6">Copy</button></div><pre id="code6" data-hl="c">// Lab 1 - Hello, GPIO!  (ESP32 DevKitC V4 in Wokwi)
 // An LED on GPIO 26 (through a 220 ohm resistor) blinks once a second.
 
 const int LED_PIN = 26;        // the GPIO pin our LED is wired to
@@ -2714,7 +2858,7 @@ void loop() {
   digitalWrite(LED_PIN, LOW);  // 0 V on the pin -&gt; LED OFF
   Serial.println(&quot;LED OFF&quot;);
   delay(500);
-}</pre></div><div class="codebox"><div class="bar"><b>solution_millis.ino</b><button class="btn small" data-copy="code5">Copy</button></div><pre id="code5" data-hl="c">// Lab 1 - Try-this solution: two LEDs at two different rates WITHOUT delay()
+}</pre></div><div class="codebox"><div class="bar"><b>solution_millis.ino</b><button class="btn small" data-copy="code7">Copy</button></div><pre id="code7" data-hl="c">// Lab 1 - Try-this solution: two LEDs at two different rates WITHOUT delay()
 // Red LED on GPIO 26 toggles every 500 ms, green LED on GPIO 27 every 130 ms.
 
 const int RED_PIN = 26;
@@ -2759,7 +2903,7 @@ void loop() {
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code6">Copy</button></div><pre id="code6" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code8">Copy</button></div><pre id="code8" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -2878,7 +3022,7 @@ void loop() {
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py (interrupt version)</b><button class="btn small" data-copy="code7">Copy</button></div><pre id="code7" data-hl="py"># Lab 2 - Buttons &amp; Interrupts
+<div class="codebox"><div class="bar"><b>main.py (interrupt version)</b><button class="btn small" data-copy="code9">Copy</button></div><pre id="code9" data-hl="py"># Lab 2 - Buttons &amp; Interrupts
 # Push-button on GPIO 4 (other leg to GND), LED on GPIO 26.
 # Every press toggles the LED and increments a counter - handled by an INTERRUPT.
 from machine import Pin
@@ -2909,7 +3053,7 @@ while True:
         led.value(not led.value())
         print(&quot;Press #%d -&gt; LED %s&quot; % (count, &quot;ON&quot; if led.value() else &quot;OFF&quot;))
     time.sleep_ms(10)           # the CPU is free here for other work</pre></div>
-<details><summary>Polling version, for comparison</summary><div class="codebox"><div class="bar"><b>polling.py</b><button class="btn small" data-copy="code8">Copy</button></div><pre id="code8" data-hl="py"># Lab 2 - Polling version (for comparison). Same wiring as the interrupt version.
+<details><summary>Polling version, for comparison</summary><div class="codebox"><div class="bar"><b>polling.py</b><button class="btn small" data-copy="code10">Copy</button></div><pre id="code10" data-hl="py"># Lab 2 - Polling version (for comparison). Same wiring as the interrupt version.
 from machine import Pin
 import time
 
@@ -2937,7 +3081,7 @@ while True:
 <li>Open it in <a href="https://sigrok.org/wiki/Downloads" target="_blank" rel="noopener">PulseView</a> (free): <b>Open &rarr; Import Value Change Dump data</b>. No PulseView on your PC? Your instructor will show it on the projector.</li></ol>
 <p><b>Look for:</b></p><ol><li>Zoom in on a button press on D0. Do you see more than one edge within a few milliseconds? That is <b>contact bounce</b>, and it is why the code ignores edges for 200 ms.</li><li>Measure the time from the falling edge on D0 to the LED changing on D1. That is your <b>interrupt latency</b> plus MicroPython's handling time. Is it microseconds or milliseconds?</li></ol></div>
 <div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Double-click:</b> two presses within 400 ms toggle the LED; a single press only prints &ldquo;single&rdquo;.<details><summary>Hint</summary><p>Store the time of the previous press. On a new press, check <code>ticks_diff(now, last) &lt; 400</code>. Waiting to decide &ldquo;was it single?&rdquo; needs a timeout check in the main loop.</p></details></li><li><b>Reaction-time game:</b> the LED lights after a random 2&ndash;5 s; press as fast as you can and print your time in ms. Pressing too early prints &ldquo;Too soon!&rdquo;.<details><summary>Hint</summary><p><code>import random</code> &rarr; <code>random.randint(2000, 5000)</code>. Record <code>ticks_ms()</code> when the LED turns on; the interrupt handler records the press time. Who in your row is fastest?</p></details></li></ol></div>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code9">Copy</button></div><pre id="code9" data-hl="c">// Lab 2 - Buttons &amp; Interrupts
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code11">Copy</button></div><pre id="code11" data-hl="c">// Lab 2 - Buttons &amp; Interrupts
 // Push-button on GPIO 4 (other leg to GND), LED on GPIO 26.
 // Every press toggles the LED and increments a counter - handled by an INTERRUPT.
 
@@ -2976,7 +3120,7 @@ void loop() {
     Serial.printf(&quot;Press #%d -&gt; LED %s\n&quot;, count, ledOn ? &quot;ON&quot; : &quot;OFF&quot;);
   }
   // The CPU is free here - e.g. blink something else, read sensors...
-}</pre></div><div class="codebox"><div class="bar"><b>polling.ino</b><button class="btn small" data-copy="code10">Copy</button></div><pre id="code10" data-hl="c">// Lab 2 - Polling version (for comparison). Same wiring as the interrupt version.
+}</pre></div><div class="codebox"><div class="bar"><b>polling.ino</b><button class="btn small" data-copy="code12">Copy</button></div><pre id="code12" data-hl="c">// Lab 2 - Polling version (for comparison). Same wiring as the interrupt version.
 const int BUTTON_PIN = 4;
 const int LED_PIN = 26;
 
@@ -3006,7 +3150,7 @@ void loop() {
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code11">Copy</button></div><pre id="code11" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code13">Copy</button></div><pre id="code13" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -3148,7 +3292,7 @@ void loop() {
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code12">Copy</button></div><pre id="code12" data-hl="py"># Lab 3 - The Analog World: ADC in, PWM out
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code14">Copy</button></div><pre id="code14" data-hl="py"># Lab 3 - The Analog World: ADC in, PWM out
 # Potentiometer wiper -&gt; GPIO 34 (ADC), LED on GPIO 26 dimmed with PWM.
 from machine import Pin, ADC, PWM
 import time
@@ -3172,7 +3316,7 @@ while True:
 <li><b>Night lamp:</b> the board already has an LDR module on GPIO 35. Click it to change the light level. Switch the LED on only when it is dark.</li>
 </ol></div>
 <details><summary>Answers and night-lamp solution</summary><ol><li>Mid-way; about 1.65 V.</li><li>About 0.8 mV.</li><li>Yes: squaring makes the low end finer (a crude &lsquo;gamma correction&rsquo;).</li></ol>
-<div class="codebox"><div class="bar"><b>solution_nightlamp.py</b><button class="btn small" data-copy="code13">Copy</button></div><pre id="code13" data-hl="py"># Lab 3 - Try-this solution: automatic night lamp
+<div class="codebox"><div class="bar"><b>solution_nightlamp.py</b><button class="btn small" data-copy="code15">Copy</button></div><pre id="code15" data-hl="py"># Lab 3 - Try-this solution: automatic night lamp
 # LDR module AO -&gt; GPIO 35. In Wokwi the AO value RISES when it gets darker.
 from machine import Pin, ADC
 import time
@@ -3202,7 +3346,7 @@ while True:
 <li>f<sub>c</sub> &asymp; 16 Hz, far below 1 kHz, so the ripple is small and the output is the average: duty &times; 3.3 V.</li>
 <li>At 20 Hz the LED visibly flickers. Lamps need well above about 100 Hz; motor drivers often use 20 kHz or more so the switching is not audible.</li></ol></details></div>
 <div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Smooth the noise:</b> average the last 8 readings and print a text bar graph: <code>'#' * (avg * 40 // 4095)</code>.<details><summary>Hint</summary><p>Keep a list: <code>append()</code> the new reading, <code>pop(0)</code> when it has more than 8, then <code>sum(buf) // len(buf)</code>. This is a <b>moving-average filter</b>.</p></details></li><li><b>Knob sets the blink speed:</b> fully left = 1000 ms, fully right = 50 ms, with no blocking.<details><summary>Hint</summary><p>Map the reading: <code>interval = 1000 - raw * 950 // 4095</code>, then reuse the ticks pattern from Lab 1.</p></details></li></ol></div>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code14">Copy</button></div><pre id="code14" data-hl="c">// Lab 3 - The Analog World: ADC in, PWM out
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code16">Copy</button></div><pre id="code16" data-hl="c">// Lab 3 - The Analog World: ADC in, PWM out
 // Potentiometer wiper -&gt; GPIO 34 (ADC1), LED on GPIO 26 dimmed with PWM.
 // Open the Serial Plotter style output: each line prints &quot;raw volts duty&quot;.
 
@@ -3223,7 +3367,7 @@ void loop() {
 
   Serial.printf(&quot;raw:%d volts:%.2f duty:%d\n&quot;, raw, volts, duty);
   delay(100);
-}</pre></div><div class="codebox"><div class="bar"><b>solution_nightlamp.ino</b><button class="btn small" data-copy="code15">Copy</button></div><pre id="code15" data-hl="c">// Lab 3 - Try-this solution: automatic night lamp
+}</pre></div><div class="codebox"><div class="bar"><b>solution_nightlamp.ino</b><button class="btn small" data-copy="code17">Copy</button></div><pre id="code17" data-hl="c">// Lab 3 - Try-this solution: automatic night lamp
 // LDR module AO -&gt; GPIO 35. In Wokwi the AO value RISES when it gets darker.
 const int LDR_PIN = 35;
 const int LED_PIN = 26;
@@ -3256,7 +3400,7 @@ void loop() {
     <li>Add a second file: click the small <b>&#9662;</b> arrow next to the file tabs &rarr; <b>New file</b>, name it <code>ssd1306.py</code>, and paste the <b>ssd1306.py</b> code below.</li>
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code16">Copy</button></div><pre id="code16" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code18">Copy</button></div><pre id="code18" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -3412,7 +3556,7 @@ void loop() {
   ],
   &quot;dependencies&quot;: {}
 }</pre></div>
-  <div class="codebox"><div class="bar"><b>ssd1306.py</b><button class="btn small" data-copy="code17">Copy</button></div><pre id="code17" data-hl="py"># MicroPython SSD1306 OLED driver, I2C and SPI interfaces
+  <div class="codebox"><div class="bar"><b>ssd1306.py</b><button class="btn small" data-copy="code19">Copy</button></div><pre id="code19" data-hl="py"># MicroPython SSD1306 OLED driver, I2C and SPI interfaces
 
 from micropython import const
 import framebuf
@@ -3578,7 +3722,7 @@ class SSD1306_SPI(SSD1306):
         self.cs(1)</pre></div>
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code18">Copy</button></div><pre id="code18" data-hl="py"># Lab 4 - Sensor + Display over I2C
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code20">Copy</button></div><pre id="code20" data-hl="py"># Lab 4 - Sensor + Display over I2C
 # DHT22 data -&gt; GPIO 15, SSD1306 OLED on I2C (SDA = GPIO 21, SCL = GPIO 22),
 # alarm LED on GPIO 26 switches on above TEMP_ALARM.
 # Needs a second file in the project: ssd1306.py (the OLED driver).
@@ -3629,7 +3773,7 @@ while True:
 <li>Open it in <a href="https://sigrok.org/wiki/Downloads" target="_blank" rel="noopener">PulseView</a> (free): <b>Open &rarr; Import Value Change Dump data</b>. No PulseView on your PC? Your instructor will show it on the projector.</li></ol>
 <p><b>Look for:</b></p><ol><li>In PulseView, add the <b>I&sup2;C</b> decoder (SCL = D1, SDA = D0). Find the <b>START</b> condition, the 7-bit address <b>0x3C</b>, the write bit and the <b>ACK</b> from the OLED.</li><li>Measure one SCL clock period. What bus speed is <code>SoftI2C</code> using? Add <code>freq=100000</code> to the <code>SoftI2C(...)</code> line and measure again.</li><li>Why does I&sup2;C need pull-up resistors on SDA and SCL? (Hint: open-drain outputs.)</li></ol></div>
 <div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Min / max since boot:</b> show the lowest and highest temperature on a third OLED line.<details><summary>Hint</summary><p>Two variables, updated after every reading. Start them at the first reading, not at 0.</p></details></li><li><b>Live graph:</b> plot the last 128 temperatures across the screen as dots.<details><summary>Hint</summary><p>Keep a list of up to 128 values. Scale 0&ndash;50 &deg;C to 0&ndash;40 pixels and draw with <code>oled.pixel(x, 63 - y, 1)</code>.</p></details></li></ol></div>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code19">Copy</button></div><pre id="code19" data-hl="c">// Lab 4 - Sensor + Display over I2C
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code21">Copy</button></div><pre id="code21" data-hl="c">// Lab 4 - Sensor + Display over I2C
 // DHT22 data -&gt; GPIO 15, SSD1306 OLED on I2C (SDA = GPIO 21, SCL = GPIO 22),
 // alarm LED on GPIO 26 switches on above TEMP_ALARM.
 #include &lt;Wire.h&gt;
@@ -3684,7 +3828,7 @@ void loop() {
   }
   oled.display();
   delay(2000);                        // DHT22 can be read at most every 2 s
-}</pre></div><div class="codebox"><div class="bar"><b>libraries.txt</b><button class="btn small" data-copy="code20">Copy</button></div><pre id="code20" data-hl="c"># Wokwi Library List
+}</pre></div><div class="codebox"><div class="bar"><b>libraries.txt</b><button class="btn small" data-copy="code22">Copy</button></div><pre id="code22" data-hl="c"># Wokwi Library List
 Adafruit SSD1306
 Adafruit GFX Library
 DHT sensor library for ESPx</pre></div></details>
@@ -3705,7 +3849,7 @@ DHT sensor library for ESPx</pre></div></details>
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code21">Copy</button></div><pre id="code21" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code23">Copy</button></div><pre id="code23" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -3804,7 +3948,7 @@ DHT sensor library for ESPx</pre></div></details>
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code22">Copy</button></div><pre id="code22" data-hl="py"># Lab 5 - Your ESP32 on the Internet (MQTT)
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code24">Copy</button></div><pre id="code24" data-hl="py"># Lab 5 - Your ESP32 on the Internet (MQTT)
 # DHT22 -&gt; GPIO 15, LED -&gt; GPIO 26. Joins Wokwi&#x27;s virtual Wi-Fi, publishes
 # readings every 5 s, and listens for ON/OFF commands from the class dashboard.
 import network
@@ -3889,7 +4033,7 @@ while True:
 <li>Make the LED blink when the temperature is above 35 &deg;C &mdash; a local rule that keeps working even if the Internet goes down (<b>edge computing</b>).</li>
 </ol></div>
 <div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Report by exception:</b> publish only when the temperature changes by 0.5 &deg;C or more, or once a minute. Count the messages you saved.<details><summary>Hint</summary><p>Remember the last value sent and when it was sent. Battery-powered sensors work this way: radio time is the biggest power cost.</p></details></li><li><b>Last will:</b> make the broker announce &ldquo;offline&rdquo; for you if your board disappears.<details><summary>Hint</summary><p>Before <code>connect()</code>, call <code>c.set_last_will(root + '/status', 'offline', retain=True)</code>, and publish <code>'online'</code> (retained) right after connecting. Press Stop in Wokwi and watch the topic.</p></details></li></ol></div>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code23">Copy</button></div><pre id="code23" data-hl="c">// Lab 5 - Your ESP32 on the Internet (MQTT)
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code25">Copy</button></div><pre id="code25" data-hl="c">// Lab 5 - Your ESP32 on the Internet (MQTT)
 // DHT22 -&gt; GPIO 15, LED -&gt; GPIO 26. Joins Wokwi&#x27;s virtual Wi-Fi, publishes
 // readings every 5 s, and listens for ON/OFF commands from the class dashboard.
 #include &lt;WiFi.h&gt;
@@ -3975,7 +4119,7 @@ void loop() {
     mqtt.publish(dataTopic.c_str(), json);
     Serial.printf(&quot;Published to %s: %s\n&quot;, dataTopic.c_str(), json);
   }
-}</pre></div><div class="codebox"><div class="bar"><b>libraries.txt</b><button class="btn small" data-copy="code24">Copy</button></div><pre id="code24" data-hl="c"># Wokwi Library List
+}</pre></div><div class="codebox"><div class="bar"><b>libraries.txt</b><button class="btn small" data-copy="code26">Copy</button></div><pre id="code26" data-hl="c"># Wokwi Library List
 PubSubClient
 DHT sensor library for ESPx</pre></div></details>
 </section><section class="lab " id="lab6">
@@ -3993,7 +4137,7 @@ DHT sensor library for ESPx</pre></div></details>
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code25">Copy</button></div><pre id="code25" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code27">Copy</button></div><pre id="code27" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -4089,7 +4233,7 @@ DHT sensor library for ESPx</pre></div></details>
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code26">Copy</button></div><pre id="code26" data-hl="py"># Lab 6 (Deep dive) - Cooperative multitasking with asyncio
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code28">Copy</button></div><pre id="code28" data-hl="py"># Lab 6 (Deep dive) - Cooperative multitasking with asyncio
 # Three independent tasks share one CPU, like tasks in a real-time OS:
 #   blink_task  - toggles the LED on GPIO 26 every 250 ms
 #   sensor_task - reads the potentiometer (GPIO 34) and puts values in a FIFO
@@ -4139,7 +4283,7 @@ asyncio.run(main())</pre></div>
 <li>Producer&ndash;consumer, events, blocking, scheduling: which OS-course topics did you just use?</li>
 </ol></div>
 <div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Watchdog task:</b> add a task that prints &ldquo;producer stalled!&rdquo; if no new value arrives for 2 s. Test it by adding <code>time.sleep(3)</code> to the producer.<details><summary>Hint</summary><p>Keep a global <code>last_seen = time.ticks_ms()</code> updated by the producer; the watchdog task checks it every 500 ms. Real chips have a hardware watchdog that <i>resets</i> the CPU.</p></details></li><li><b>Alarm override:</b> when the knob is above 3500, the LED stays solidly on instead of blinking.<details><summary>Hint</summary><p>The producer sets a shared flag; <code>blink_task</code> checks it before toggling. Two tasks sharing one variable &mdash; where would you need a lock in FreeRTOS?</p></details></li></ol></div>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code27">Copy</button></div><pre id="code27" data-hl="c">// Lab 6 (Deep dive) - Real-time multitasking with FreeRTOS
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code29">Copy</button></div><pre id="code29" data-hl="c">// Lab 6 (Deep dive) - Real-time multitasking with FreeRTOS
 // Three independent tasks share one CPU, like tasks in a real-time OS:
 //   blinkTask  - toggles the LED on GPIO 26 every 250 ms
 //   sensorTask - reads the potentiometer (GPIO 34) and sends values to a QUEUE
@@ -4209,7 +4353,7 @@ void loop() {
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code28">Copy</button></div><pre id="code28" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code30">Copy</button></div><pre id="code30" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -4330,7 +4474,7 @@ void loop() {
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py (starter)</b><button class="btn small" data-copy="code29">Copy</button></div><pre id="code29" data-hl="py"># Mini-challenge - Smart Street Light (starter)
+<div class="codebox"><div class="bar"><b>main.py (starter)</b><button class="btn small" data-copy="code31">Copy</button></div><pre id="code31" data-hl="py"># Mini-challenge - Smart Street Light (starter)
 # Parts already wired: LDR module AO -&gt; GPIO 35, PIR motion sensor OUT -&gt; GPIO 27,
 # street-light LED -&gt; GPIO 26.
 #
@@ -4362,7 +4506,7 @@ while True:
 <div class="note">In Wokwi, click the PIR sensor and press <b>Simulate motion</b>. Click the LDR to change the light level (a reading above about 2000 means dark).</div>
 <h3>Scoring (demo to the instructor)</h3>
 <ul><li><b>3 points</b> &mdash; OFF in the day and ON at night</li><li><b>+3</b> &mdash; DIM vs FULL with motion</li><li><b>+2</b> &mdash; 5-second hold using <code>ticks_ms()</code>, with no <code>sleep()</code> blocking</li><li><b>+2</b> &mdash; prints the state only when it changes</li><li><b>+3 bonus</b> &mdash; publishes the state to the class dashboard (reuse Lab 5)</li></ul>
-<details><summary>Reference solution (instructor will reveal at 3:20)</summary><div class="codebox"><div class="bar"><b>solution.py</b><button class="btn small" data-copy="code30">Copy</button></div><pre id="code30" data-hl="py"># Mini-challenge - Smart Street Light (reference solution)
+<details><summary>Reference solution (instructor will reveal at 3:20)</summary><div class="codebox"><div class="bar"><b>solution.py</b><button class="btn small" data-copy="code32">Copy</button></div><pre id="code32" data-hl="py"># Mini-challenge - Smart Street Light (reference solution)
 from machine import Pin, ADC, PWM
 import time
 
@@ -4393,7 +4537,7 @@ while True:
         print(state)
         last_state = state
     time.sleep_ms(50)</pre></div></details>
-<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code31">Copy</button></div><pre id="code31" data-hl="c">// Mini-challenge - Smart Street Light (starter)
+<details><summary>Same lab in Arduino C (for a real ESP32 board)</summary><p style="color:var(--mute)">On wokwi.com this version needs the shared build queue, so use it with a real board and the Arduino IDE.</p><div class="codebox"><div class="bar"><b>sketch.ino</b><button class="btn small" data-copy="code33">Copy</button></div><pre id="code33" data-hl="c">// Mini-challenge - Smart Street Light (starter)
 // Parts already wired: LDR module AO -&gt; GPIO 35, PIR motion sensor OUT -&gt; GPIO 27,
 // street-light LED -&gt; GPIO 26.
 //
@@ -4426,7 +4570,7 @@ void loop() {
   // TODO: analogWrite(LAMP_PIN, 0 / 50 / 255) for OFF / DIM / FULL
 
   delay(200);
-}</pre></div><div class="codebox"><div class="bar"><b>solution.ino</b><button class="btn small" data-copy="code32">Copy</button></div><pre id="code32" data-hl="c">// Mini-challenge - Smart Street Light (reference solution)
+}</pre></div><div class="codebox"><div class="bar"><b>solution.ino</b><button class="btn small" data-copy="code34">Copy</button></div><pre id="code34" data-hl="c">// Mini-challenge - Smart Street Light (reference solution)
 const int LDR_PIN = 35;
 const int PIR_PIN = 27;
 const int LAMP_PIN = 26;
@@ -4458,163 +4602,36 @@ void loop() {
   }
   delay(50);
 }</pre></div></details>
-</section><section class="lab " id="lab7">
-<span class="pill">Take-home &middot; 20 min</span><h2 style="margin-top:8px">Lab 7: Deep Sleep and Battery Life</h2><p class="lead">Make the ESP32 sleep between jobs, wake it by timer or button, and calculate how long a battery would last.</p>
-<h3>Circuit</h3><p>Same as Lab 2: push-button on GPIO 4, LED on GPIO 26.</p>
-<table><tr><th>Part</th><th>Part pin</th><th>ESP32 pin</th></tr><tr><td>Push-button</td><td>1.l / 2.l</td><td><code>GPIO 4 / GND</code></td></tr><tr><td>LED + 220 &Omega;</td><td>A / C</td><td><code>GPIO 26 / GND</code></td></tr></table>
+</section><section class="lab " id="build">
+<span class="pill">Stretch &middot; take-home</span><h2 style="margin-top:8px">Build: Build Challenge: Circuits from Real Projects</h2><p class="lead">Real products have 10&ndash;20 parts, not 3. Rebuild circuits from published ESP32 work, from an empty board, using your Lab 0 skills.</p>
+<div class="note"><b>How to build a big circuit without getting lost:</b> add <i>one</i> part, wire it, test it with a 3-line program, then add the next. Engineers call this <b>incremental integration</b>. Colour power red, ground black, and signals by function.</div>
+
+<div class="paper">
+<h3>A. Smart room node <span class="pill">full reference solution</span></h3>
+<p class="src">Based on: M. Babiuch and J. Postulka, &ldquo;Smart Home Monitoring System Using ESP32 Microcontrollers,&rdquo; IntechOpen, 2020. <a href="https://doi.org/10.5772/intechopen.94589" target="_blank" rel="noopener">doi:10.5772/intechopen.94589</a></p>
+<p><b>What the paper built:</b> ESP32 nodes with PIR motion sensors and temperature sensors in each room, camera modules, touch screens showing room status and temperature, and control LEDs. When an intruder is detected, the system raises an alarm and sends the data to the owner&rsquo;s phone.</p>
+<p><b>Our Wokwi version</b> (14 parts, 30 wires): the camera and touch screen become an OLED, and we add an automatic night light.</p>
+<div class="blk"><div class="col in"><div class="b">DHT22<small>temperature + humidity &middot; GPIO 15</small></div><div class="b">PIR sensor<small>motion &middot; GPIO 27</small></div><div class="b">LDR module<small>light level &middot; GPIO 35 (ADC)</small></div><div class="b">ARM button<small>GPIO 4 &rarr; GND</small></div></div><div class="mcu">ESP32<small>reads &middot; decides &middot; acts</small></div><div class="col out"><div class="b">OLED 128&times;64<small>status &middot; I&sup2;C 21/22</small></div><div class="b">Relay &rarr; lamp<small>GPIO 26</small></div><div class="b">Buzzer<small>PWM &middot; GPIO 25</small></div><div class="b">Alarm / Armed LEDs<small>GPIO 32 / 33</small></div></div></div>
+<table><tr><th>Part</th><th>Part pin</th><th>ESP32 pin</th></tr><tr><td>DHT22</td><td>VCC / SDA / GND</td><td><code>3V3 / GPIO 15 / GND</code></td></tr><tr><td>PIR motion sensor</td><td>VCC / OUT / GND</td><td><code>5V / GPIO 27 / GND</code></td></tr><tr><td>Photoresistor (LDR) module</td><td>VCC / AO / GND</td><td><code>3V3 / GPIO 35 / GND</code></td></tr><tr><td>SSD1306 OLED</td><td>VCC / GND / SDA / SCL</td><td><code>3V3 / GND / GPIO 21 / GPIO 22</code></td></tr><tr><td>Push-button (ARM)</td><td>1.l / 2.l</td><td><code>GPIO 4 / GND</code></td></tr><tr><td>Relay module</td><td>VCC / GND / IN</td><td><code>5V / GND / GPIO 26</code></td></tr><tr><td>Relay contacts &rarr; lamp</td><td>COM &rarr; 3V3; NO &rarr; 220 &Omega; &rarr; yellow LED &rarr; GND</td><td><code>(switched by relay)</code></td></tr><tr><td>Buzzer</td><td>2 (+) / 1 (&minus;)</td><td><code>GPIO 25 / GND</code></td></tr><tr><td>Red LED (Alarm) + 220 &Omega;</td><td>A / C</td><td><code>GPIO 32 / GND</code></td></tr><tr><td>Green LED (Armed) + 220 &Omega;</td><td>A / C</td><td><code>GPIO 33 / GND</code></td></tr></table>
+<h4>What it must do</h4>
+<ol>
+<li>The OLED shows temperature, humidity, light level and the mode (<i>home</i> or <i>ARMED</i>).</li>
+<li>The ARM button toggles the mode; the green LED is on while armed.</li>
+<li><b>Armed + motion</b> &rarr; alarm: red LED and buzzer pulse at 2 Hz.</li>
+<li><b>Home + dark + motion</b> &rarr; the relay switches the lamp on, and it stays on 10 s after the last motion.</li>
+</ol>
+<h4>Build it in four checkpoints</h4>
+<ol class="steps">
+<li><b>Display + DHT22:</b> the OLED shows the temperature. (Reuse Lab 4.)</li>
+<li><b>PIR + LDR:</b> print <code>pir.value()</code> and the ADC reading; move the PIR slider and LDR slider in Wokwi.</li>
+<li><b>Relay + lamp:</b> <code>relay.value(1)</code> &mdash; you should hear the relay click and see the lamp LED light.</li>
+<li><b>Button, buzzer, LEDs:</b> add the ARM logic and the alarm.</li>
+</ol>
+<div class="note">Lamp works backwards? A relay module can be <i>active-high</i> or <i>active-low</i>. In Wokwi, click the relay and check its <code>transistor</code> setting (npn = active-high).</div>
+<details><summary>Reference solution (diagram.json, main.py, ssd1306.py)</summary>
 
 <div class="card" style="margin:14px 0">
-  <div id="wk-lab7"></div>
-  <details><summary>No link yet? Build the project yourself in 1 minute</summary>
-  <ol class="steps">
-    <li>Open <a href="https://wokwi.com/projects/new/micropython-esp32" target="_blank" rel="noopener">wokwi.com/projects/new/micropython-esp32</a> (a blank MicroPython ESP32 project).</li>
-    <li>Click the <b>diagram.json</b> tab, select all (Ctrl+A), and paste the <b>diagram.json</b> below. The parts and wires appear.</li>
-    <li>Click the <b>main.py</b> tab, select all, and paste the program.</li>
-    
-    <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
-  </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code33">Copy</button></div><pre id="code33" data-hl="json">{
-  &quot;version&quot;: 1,
-  &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
-  &quot;editor&quot;: &quot;wokwi&quot;,
-  &quot;parts&quot;: [
-    {
-      &quot;type&quot;: &quot;board-esp32-devkit-c-v4&quot;,
-      &quot;id&quot;: &quot;esp&quot;,
-      &quot;top&quot;: 0,
-      &quot;left&quot;: 0,
-      &quot;attrs&quot;: {
-        &quot;env&quot;: &quot;micropython-20260406-v1.28.0&quot;
-      }
-    },
-    {
-      &quot;type&quot;: &quot;wokwi-resistor&quot;,
-      &quot;id&quot;: &quot;r1&quot;,
-      &quot;top&quot;: 28,
-      &quot;left&quot;: 140,
-      &quot;rotate&quot;: 0,
-      &quot;attrs&quot;: {
-        &quot;value&quot;: &quot;220&quot;
-      }
-    },
-    {
-      &quot;type&quot;: &quot;wokwi-led&quot;,
-      &quot;id&quot;: &quot;led1&quot;,
-      &quot;top&quot;: -40,
-      &quot;left&quot;: 230,
-      &quot;attrs&quot;: {
-        &quot;color&quot;: &quot;red&quot;
-      }
-    },
-    {
-      &quot;type&quot;: &quot;wokwi-pushbutton&quot;,
-      &quot;id&quot;: &quot;btn1&quot;,
-      &quot;top&quot;: 120,
-      &quot;left&quot;: 200,
-      &quot;attrs&quot;: {
-        &quot;color&quot;: &quot;green&quot;
-      }
-    }
-  ],
-  &quot;connections&quot;: [
-    [
-      &quot;esp:TX&quot;,
-      &quot;$serialMonitor:RX&quot;,
-      &quot;&quot;,
-      []
-    ],
-    [
-      &quot;esp:RX&quot;,
-      &quot;$serialMonitor:TX&quot;,
-      &quot;&quot;,
-      []
-    ],
-    [
-      &quot;esp:26&quot;,
-      &quot;r1:1&quot;,
-      &quot;orange&quot;,
-      []
-    ],
-    [
-      &quot;r1:2&quot;,
-      &quot;led1:A&quot;,
-      &quot;orange&quot;,
-      []
-    ],
-    [
-      &quot;led1:C&quot;,
-      &quot;esp:GND.2&quot;,
-      &quot;black&quot;,
-      []
-    ],
-    [
-      &quot;btn1:1.l&quot;,
-      &quot;esp:4&quot;,
-      &quot;blue&quot;,
-      []
-    ],
-    [
-      &quot;btn1:2.l&quot;,
-      &quot;esp:GND.2&quot;,
-      &quot;black&quot;,
-      []
-    ]
-  ],
-  &quot;dependencies&quot;: {}
-}</pre></div>
-  
-  </details>
-</div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code34">Copy</button></div><pre id="code34" data-hl="py"># Lab 7 (take-home): deep sleep and battery life
-# The ESP32 wakes up, does a little work, then sleeps for 10 s.
-# Press the button to wake it early.
-import machine, esp32, time
-from machine import Pin
-
-led = Pin(26, Pin.OUT)
-btn = Pin(4, Pin.IN, Pin.PULL_UP)
-rtc = machine.RTC()
-
-# Normal variables live in RAM, which is switched off in deep sleep.
-# RTC memory stays powered, so the boot counter survives.
-mem = rtc.memory()
-boots = int(mem) + 1 if mem else 1
-rtc.memory(str(boots))
-
-if machine.reset_cause() == machine.DEEPSLEEP_RESET:
-    why = {machine.EXT0_WAKE: &quot;button&quot;, machine.TIMER_WAKE: &quot;timer&quot;}.get(machine.wake_reason(), &quot;other&quot;)
-    print(&quot;Woke up from deep sleep (&quot;, why, &quot;) - boot number&quot;, boots)
-else:
-    print(&quot;Power-on boot - boot number&quot;, boots)
-
-# The &#x27;work&#x27;: pretend to read a sensor and send the value (about 0.6 s awake)
-for _ in range(3):
-    led.on(); time.sleep_ms(100)
-    led.off(); time.sleep_ms(100)
-print(&quot;Work done. Deep sleep for 10 s (or press the button)...&quot;)
-
-esp32.wake_on_ext0(pin=btn, level=esp32.WAKEUP_ALL_LOW)   # wake when GPIO 4 goes low
-time.sleep_ms(50)                                         # let the message finish printing
-machine.deepsleep(10000)                                  # never returns: the chip restarts on wake</pre></div>
-<div class="note">Watch the Serial Monitor: every 10 s the board <b>restarts from the top</b>, because deep sleep switches off the CPU and RAM. Only the RTC (real-time clock) block stays awake, so <code>rtc.memory()</code> is the place to keep the boot counter.</div>
-<h3>Why it matters: the battery sum</h3>
-<table><tr><th></th><th>Current</th><th>Time per minute</th></tr>
-<tr><td>Awake (CPU + Wi-Fi)</td><td>about 80 mA</td><td>2 s</td></tr><tr><td>Deep sleep</td><td>about 10 &micro;A</td><td>58 s</td></tr></table>
-<div class="try"><h4>Try this</h4><ol>
-<li>Average current = (80 &times; 2 + 0.01 &times; 58) / 60 = ? mA. How many days would a 2000 mAh battery last? And if the board never slept?</li>
-<li>Change the sleep time to 60 s. How does the battery life change?</li>
-<li>Why does the boot counter start again from 1 when you press Stop and then Start in Wokwi?</li>
-<li>Combine with Lab 5: wake, publish one MQTT reading, sleep. Why is Wi-Fi connection time now the biggest cost? <span class="pill deep">Deep dive</span></li>
-</ol></div>
-<details><summary>Answers</summary><ol><li>About 2.7 mA &rarr; about 750 hours &asymp; <b>31 days</b>. Always awake at 80 mA: about 25 hours, so sleeping gives about 30&times; the battery life.</li>
-<li>About 0.68 mA average &rarr; roughly 4 months.</li><li>Stop/Start is a power cut: RTC memory is lost too. Only a deep-sleep wake keeps it.</li>
-<li>Joining Wi-Fi takes 1&ndash;3 s at full current, much longer than sending one message. Products keep connections short, or use low-power radios such as BLE or LoRa.</li></ol></details>
-</section><section class="lab " id="lab8">
-<span class="pill">Take-home &middot; 25 min</span><h2 style="margin-top:8px">Lab 8: Live Weather from the Web (HTTP + JSON)</h2><p class="lead">Call a real web API from the ESP32, parse the JSON reply, and show Hassan&rsquo;s live weather next to your own sensor.</p>
-<h3>Circuit</h3><p>Same as Lab 4: DHT22 on GPIO 15, OLED on I&sup2;C (GPIO 21 / 22).</p>
-
-<div class="card" style="margin:14px 0">
-  <div id="wk-lab8"></div>
+  <div id="wk-lab0x"></div>
   <details><summary>No link yet? Build the project yourself in 1 minute</summary>
   <ol class="steps">
     <li>Open <a href="https://wokwi.com/projects/new/micropython-esp32" target="_blank" rel="noopener">wokwi.com/projects/new/micropython-esp32</a> (a blank MicroPython ESP32 project).</li>
@@ -4638,41 +4655,117 @@ machine.deepsleep(10000)                                  # never returns: the c
       }
     },
     {
+      &quot;type&quot;: &quot;wokwi-dht22&quot;,
+      &quot;id&quot;: &quot;dht1&quot;,
+      &quot;top&quot;: -120,
+      &quot;left&quot;: -160,
+      &quot;attrs&quot;: {
+        &quot;temperature&quot;: &quot;27&quot;,
+        &quot;humidity&quot;: &quot;55&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-pir-motion-sensor&quot;,
+      &quot;id&quot;: &quot;pir1&quot;,
+      &quot;top&quot;: 40,
+      &quot;left&quot;: -260,
+      &quot;attrs&quot;: {}
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-photoresistor-sensor&quot;,
+      &quot;id&quot;: &quot;ldr1&quot;,
+      &quot;top&quot;: 200,
+      &quot;left&quot;: -330,
+      &quot;attrs&quot;: {}
+    },
+    {
+      &quot;type&quot;: &quot;board-ssd1306&quot;,
+      &quot;id&quot;: &quot;oled1&quot;,
+      &quot;top&quot;: -110,
+      &quot;left&quot;: 160,
+      &quot;attrs&quot;: {}
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-pushbutton&quot;,
+      &quot;id&quot;: &quot;btn1&quot;,
+      &quot;top&quot;: 300,
+      &quot;left&quot;: -170,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;blue&quot;,
+        &quot;label&quot;: &quot;ARM&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-relay-module&quot;,
+      &quot;id&quot;: &quot;relay1&quot;,
+      &quot;top&quot;: 40,
+      &quot;left&quot;: 330,
+      &quot;attrs&quot;: {}
+    },
+    {
       &quot;type&quot;: &quot;wokwi-resistor&quot;,
-      &quot;id&quot;: &quot;r1&quot;,
-      &quot;top&quot;: 28,
-      &quot;left&quot;: 170,
-      &quot;rotate&quot;: 0,
+      &quot;id&quot;: &quot;r3&quot;,
+      &quot;top&quot;: 120,
+      &quot;left&quot;: 470,
       &quot;attrs&quot;: {
         &quot;value&quot;: &quot;220&quot;
       }
     },
     {
       &quot;type&quot;: &quot;wokwi-led&quot;,
-      &quot;id&quot;: &quot;led1&quot;,
-      &quot;top&quot;: -40,
-      &quot;left&quot;: 260,
+      &quot;id&quot;: &quot;lamp&quot;,
+      &quot;top&quot;: 40,
+      &quot;left&quot;: 560,
       &quot;attrs&quot;: {
-        &quot;color&quot;: &quot;red&quot;
+        &quot;color&quot;: &quot;yellow&quot;,
+        &quot;label&quot;: &quot;Lamp&quot;
       }
     },
     {
-      &quot;type&quot;: &quot;wokwi-dht22&quot;,
-      &quot;id&quot;: &quot;dht1&quot;,
-      &quot;top&quot;: -110,
-      &quot;left&quot;: -130,
+      &quot;type&quot;: &quot;wokwi-buzzer&quot;,
+      &quot;id&quot;: &quot;bz1&quot;,
+      &quot;top&quot;: 150,
+      &quot;left&quot;: 250,
       &quot;attrs&quot;: {
-        &quot;temperature&quot;: &quot;28&quot;,
-        &quot;humidity&quot;: &quot;60&quot;
+        &quot;volume&quot;: &quot;0.3&quot;
       }
     },
     {
-      &quot;type&quot;: &quot;board-ssd1306&quot;,
-      &quot;id&quot;: &quot;oled1&quot;,
-      &quot;top&quot;: 120,
-      &quot;left&quot;: 220,
+      &quot;type&quot;: &quot;wokwi-resistor&quot;,
+      &quot;id&quot;: &quot;r1&quot;,
+      &quot;top&quot;: 250,
+      &quot;left&quot;: 160,
       &quot;attrs&quot;: {
-        &quot;i2cAddress&quot;: &quot;0x3c&quot;
+        &quot;value&quot;: &quot;220&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-led&quot;,
+      &quot;id&quot;: &quot;ledr&quot;,
+      &quot;top&quot;: 190,
+      &quot;left&quot;: 250,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;red&quot;,
+        &quot;label&quot;: &quot;Alarm&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-resistor&quot;,
+      &quot;id&quot;: &quot;r2&quot;,
+      &quot;top&quot;: 290,
+      &quot;left&quot;: 160,
+      &quot;attrs&quot;: {
+        &quot;value&quot;: &quot;220&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-led&quot;,
+      &quot;id&quot;: &quot;ledg&quot;,
+      &quot;top&quot;: 230,
+      &quot;left&quot;: 330,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;green&quot;,
+        &quot;label&quot;: &quot;Armed&quot;
       }
     }
   ],
@@ -4690,24 +4783,6 @@ machine.deepsleep(10000)                                  # never returns: the c
       []
     ],
     [
-      &quot;esp:26&quot;,
-      &quot;r1:1&quot;,
-      &quot;orange&quot;,
-      []
-    ],
-    [
-      &quot;r1:2&quot;,
-      &quot;led1:A&quot;,
-      &quot;orange&quot;,
-      []
-    ],
-    [
-      &quot;led1:C&quot;,
-      &quot;esp:GND.2&quot;,
-      &quot;black&quot;,
-      []
-    ],
-    [
       &quot;dht1:VCC&quot;,
       &quot;esp:3V3&quot;,
       &quot;red&quot;,
@@ -4715,7 +4790,7 @@ machine.deepsleep(10000)                                  # never returns: the c
     ],
     [
       &quot;dht1:GND&quot;,
-      &quot;esp:GND.2&quot;,
+      &quot;esp:GND.1&quot;,
       &quot;black&quot;,
       []
     ],
@@ -4723,6 +4798,42 @@ machine.deepsleep(10000)                                  # never returns: the c
       &quot;dht1:SDA&quot;,
       &quot;esp:15&quot;,
       &quot;green&quot;,
+      []
+    ],
+    [
+      &quot;pir1:VCC&quot;,
+      &quot;esp:5V&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;pir1:GND&quot;,
+      &quot;esp:GND.1&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;pir1:OUT&quot;,
+      &quot;esp:27&quot;,
+      &quot;violet&quot;,
+      []
+    ],
+    [
+      &quot;ldr1:VCC&quot;,
+      &quot;esp:3V3&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;ldr1:GND&quot;,
+      &quot;esp:GND.1&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;ldr1:AO&quot;,
+      &quot;esp:35&quot;,
+      &quot;gold&quot;,
       []
     ],
     [
@@ -4746,7 +4857,109 @@ machine.deepsleep(10000)                                  # never returns: the c
     [
       &quot;oled1:SCL&quot;,
       &quot;esp:22&quot;,
-      &quot;purple&quot;,
+      &quot;cyan&quot;,
+      []
+    ],
+    [
+      &quot;btn1:1.l&quot;,
+      &quot;esp:4&quot;,
+      &quot;blue&quot;,
+      []
+    ],
+    [
+      &quot;btn1:2.l&quot;,
+      &quot;esp:GND.1&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;relay1:VCC&quot;,
+      &quot;esp:5V&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;relay1:GND&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;relay1:IN&quot;,
+      &quot;esp:26&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;relay1:COM&quot;,
+      &quot;esp:3V3&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;relay1:NO&quot;,
+      &quot;r3:1&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;r3:2&quot;,
+      &quot;lamp:A&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;lamp:C&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;bz1:2&quot;,
+      &quot;esp:25&quot;,
+      &quot;magenta&quot;,
+      []
+    ],
+    [
+      &quot;bz1:1&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;esp:32&quot;,
+      &quot;r1:1&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;r1:2&quot;,
+      &quot;ledr:A&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;ledr:C&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;esp:33&quot;,
+      &quot;r2:1&quot;,
+      &quot;green&quot;,
+      []
+    ],
+    [
+      &quot;r2:2&quot;,
+      &quot;ledg:A&quot;,
+      &quot;green&quot;,
+      []
+    ],
+    [
+      &quot;ledg:C&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
       []
     ]
   ],
@@ -4918,7 +5131,598 @@ class SSD1306_SPI(SSD1306):
         self.cs(1)</pre></div>
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code37">Copy</button></div><pre id="code37" data-hl="py"># Lab 8 (take-home): live Hassan weather from the web, next to your own sensor
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code37">Copy</button></div><pre id="code37" data-hl="py"># Build challenge - Smart room node (reference solution)
+# Inspired by Babiuch &amp; Postulka, &quot;Smart Home Monitoring System Using ESP32
+# Microcontrollers&quot; (IntechOpen, 2020): PIR motion + temperature sensing,
+# a status display, control LEDs and an intruder alarm.
+#
+# Pin map
+#   DHT22 data   -&gt; GPIO 15      PIR OUT      -&gt; GPIO 27
+#   LDR AO       -&gt; GPIO 35      ARM button   -&gt; GPIO 4 (to GND)
+#   OLED SDA/SCL -&gt; GPIO 21/22   Relay IN     -&gt; GPIO 26 (relay switches the lamp LED)
+#   Buzzer +     -&gt; GPIO 25      Alarm LED    -&gt; GPIO 32   Armed LED -&gt; GPIO 33
+# Needs a second file in the project: ssd1306.py (the OLED driver from Lab 4).
+from machine import Pin, ADC, PWM, SoftI2C
+import dht
+import ssd1306
+import time
+
+DARK = 2000            # LDR reading above this = dark (calibrate from the printout)
+LAMP_HOLD_MS = 10000   # auto-light stays on this long after the last motion
+BEEP_HZ = 2000
+
+sensor = dht.DHT22(Pin(15))
+pir = Pin(27, Pin.IN)
+ldr = ADC(Pin(35)); ldr.atten(ADC.ATTN_11DB)
+button = Pin(4, Pin.IN, Pin.PULL_UP)
+relay = Pin(26, Pin.OUT, value=0)
+alarm_led = Pin(32, Pin.OUT, value=0)
+armed_led = Pin(33, Pin.OUT, value=0)
+buzzer = PWM(Pin(25), freq=BEEP_HZ, duty_u16=0)
+oled = ssd1306.SSD1306_I2C(128, 64, SoftI2C(scl=Pin(22), sda=Pin(21)))
+
+armed = False
+last_press = 0
+last_motion = None
+last_dht = -5000                         # read the DHT22 straight away
+temp = hum = None
+
+def on_button(pin):                     # interrupt: toggle ARMED, with 250 ms debounce
+    global armed, last_press
+    now = time.ticks_ms()
+    if time.ticks_diff(now, last_press) &gt; 250:
+        armed = not armed
+        last_press = now
+button.irq(trigger=Pin.IRQ_FALLING, handler=on_button)
+
+print(&quot;Smart room node ready. Press ARM to arm/disarm.&quot;)
+state = &quot;&quot;
+while True:
+    now = time.ticks_ms()
+
+    # 1. Sense
+    if time.ticks_diff(now, last_dht) &gt; 2000:      # DHT22 needs &gt;= 2 s between reads
+        try:
+            sensor.measure(); temp, hum = sensor.temperature(), sensor.humidity()
+        except OSError:
+            pass
+        last_dht = now
+    light = ldr.read_u16() &gt;&gt; 4                    # 0..4095
+    dark = light &gt; DARK
+    motion = pir.value() == 1
+    if motion:
+        last_motion = now
+    recent = last_motion is not None and time.ticks_diff(now, last_motion) &lt; LAMP_HOLD_MS
+
+    # 2. Decide
+    alarm = armed and motion
+    lamp = (not armed) and dark and recent
+
+    # 3. Act
+    armed_led.value(armed)
+    relay.value(lamp)
+    blink = (now // 250) % 2 == 0                  # 2 Hz pattern for the alarm
+    alarm_led.value(alarm and blink)
+    buzzer.duty_u16(32768 if (alarm and blink) else 0)
+
+    # 4. Show
+    oled.fill(0)
+    oled.text(&quot;Smart room node&quot;, 0, 0)
+    oled.text(&quot;T:%s C H:%s %%&quot; % (&quot;--&quot; if temp is None else &quot;%.1f&quot; % temp,
+                                   &quot;--&quot; if hum is None else &quot;%.0f&quot; % hum), 0, 16)
+    oled.text(&quot;Light:%4d %s&quot; % (light, &quot;dark&quot; if dark else &quot;day&quot;), 0, 28)
+    oled.text(&quot;Mode: &quot; + (&quot;ARMED&quot; if armed else &quot;home&quot;), 0, 40)
+    oled.text(&quot;ALARM!&quot; if alarm else (&quot;Lamp ON&quot; if lamp else &quot;Lamp off&quot;), 0, 52)
+    oled.show()
+
+    new_state = &quot;ALARM&quot; if alarm else (&quot;ARMED&quot; if armed else (&quot;LAMP&quot; if lamp else &quot;IDLE&quot;))
+    if new_state != state:                         # log only changes
+        print(new_state, &quot;| T:&quot;, temp, &quot;H:&quot;, hum, &quot;light:&quot;, light)
+        state = new_state
+    time.sleep_ms(50)</pre></div>
+</details>
+<div class="try stretch"><h4>&#x1F680; Finished early? Stretch tasks</h4><ol><li><b>Send the alarm to the cloud:</b> publish <code>ALARM</code> over MQTT so it appears on the class dashboard, as the paper sends alerts to a phone.<details><summary>Hint</summary><p>Copy the Wi-Fi and MQTT parts of Lab 5. Publish only when the state <i>changes</i>, not every loop.</p></details></li><li><b>Two rooms:</b> add a second PIR on GPIO 14 and show which room triggered the alarm.<details><summary>Hint</summary><p>Keep a list of (name, pin) pairs and loop over it. The rest of the logic does not change &mdash; that is good design.</p></details></li></ol></div>
+</div>
+
+<div class="paper">
+<h3>B. Solar (PV) SCADA node <span class="pill">design challenge</span></h3>
+<p class="src">Based on: L. O. Aghenta and M. T. Iqbal, &ldquo;Design and implementation of a low-cost, open source IoT-based SCADA system using ESP32 with OLED, ThingsBoard and MQTT protocol,&rdquo; <i>AIMS Electronics and Electrical Engineering</i>, 4(1): 57&ndash;86, 2020. <a href="https://doi.org/10.3934/ElectrEng.2020.1.57" target="_blank" rel="noopener">doi:10.3934/ElectrEng.2020.1.57</a></p>
+<p><b>What the paper built:</b> a SCADA (supervisory control and data acquisition) system for a solar PV plant: current and voltage sensors feed an ESP32 with an OLED display, which sends the data over MQTT to a ThingsBoard dashboard.</p>
+<p><b>Our Wokwi version:</b> two potentiometers stand in for the voltage and current sensors.</p>
+<div class="blk"><div class="col in"><div class="b">Pot 1 = PV voltage sensor<small>0&ndash;3.3 V &rarr; 0&ndash;25 V &middot; GPIO 34</small></div><div class="b">Pot 2 = current sensor<small>0&ndash;3.3 V &rarr; 0&ndash;5 A &middot; GPIO 35</small></div></div><div class="mcu">ESP32<small>measure &middot; compute &middot; protect &middot; report</small></div><div class="col out"><div class="b">OLED<small>V, I, P, Wh &middot; I&sup2;C 21/22</small></div><div class="b">Relay = load switch<small>GPIO 26</small></div><div class="b">Status LED<small>GPIO 33</small></div><div class="b">MQTT &rarr; dashboard<small>Wi-Fi (Lab 5)</small></div></div></div>
+<h4>Your tasks</h4>
+<ol>
+<li>Read both pots 16 times and average (noise filtering). Convert to volts and amps.</li>
+<li>Compute power <code>P = V &times; I</code> and energy <code>Wh += P &times; &Delta;t / 3600</code>.</li>
+<li><b>Low-voltage disconnect</b> with hysteresis: switch the load <i>off</i> below 11.5 V and back <i>on</i> only above 12.5 V. Why two thresholds?</li>
+<li>Show V, I, P and Wh on the OLED, and publish them as JSON over MQTT every 5 s.</li>
+</ol>
+<div class="try ece"><h4>&#x1F4D0; ECE design question</h4>
+<p>A real 25 V panel cannot go straight into a 3.3 V ADC pin. Design the voltage divider so 25 V gives about 3.0 V. Pick standard resistor values and work out the current it draws from the panel.</p>
+<details><summary>One answer</summary><p>Ratio = 25 / 3.0 &asymp; 8.3. With R1 = 68 k&Omega; (top) and R2 = 9.1 k&Omega; (bottom): V<sub>out</sub> = 25 &times; 9.1 / 77.1 &asymp; 2.95 V, and the divider draws 25 / 77.1 k&Omega; &asymp; 0.32 mA. In code, multiply the measured voltage by 77.1 / 9.1 &asymp; 8.47.</p></details></div>
+<details><summary>Hints</summary><ul>
+<li>Volts at the pin: <code>adc.read_uv() / 1e6</code> gives a calibrated value; then scale to 0&ndash;25 V.</li>
+<li>Hysteresis: <code>if load_on and v &lt; 11.5: load_on = False</code> &nbsp; <code>elif not load_on and v &gt; 12.5: load_on = True</code>.</li>
+<li>JSON: <code>import json</code> &rarr; <code>client.publish(topic, json.dumps({"V": v, "I": i, "P": p}))</code>.</li></ul></details>
+</div>
+
+<div class="paper">
+<h3>C. Smart drip-irrigation controller <span class="pill">design challenge</span></h3>
+<p class="src">A standard ESP32 application in agriculture IoT (no single source paper).</p>
+<div class="blk"><div class="col in"><div class="b">Pot = soil-moisture sensor<small>0&ndash;100 % &middot; GPIO 34</small></div><div class="b">DHT22<small>air temperature &middot; GPIO 15</small></div><div class="b">HC-SR04 ultrasonic<small>tank level &middot; TRIG 5 / ECHO 18</small></div><div class="b">Manual button<small>GPIO 4</small></div></div><div class="mcu">ESP32<small>senses &middot; schedules &middot; protects</small></div><div class="col out"><div class="b">Relay = pump<small>GPIO 26</small></div><div class="b">OLED<small>soil %, tank %, pump &middot; I&sup2;C 21/22</small></div><div class="b">Pump LED<small>GPIO 33</small></div></div></div>
+<h4>Your tasks</h4>
+<ol>
+<li>Pump <b>on</b> when soil moisture &lt; 30 %, <b>off</b> when it rises above 60 % (hysteresis again).</li>
+<li><b>Dry-run protection:</b> never run the pump if the tank is below 15 %. Measure the level with the HC-SR04.</li>
+<li>The button forces the pump on for 30 s (manual watering), still respecting dry-run protection.</li>
+<li>Show soil %, tank %, temperature and pump state on the OLED.</li>
+</ol>
+<details><summary>Hints</summary><ul>
+<li>HC-SR04: pulse TRIG high for 10 &micro;s, then <code>t = machine.time_pulse_us(echo, 1, 30000)</code>; distance in cm = <code>t &times; 0.0343 / 2</code>.</li>
+<li>Tank %: if the tank is 100 cm deep, level = <code>100 &minus; distance</code>.</li>
+<li>Write the pump logic as a small <b>state machine</b>: IDLE, WATERING, MANUAL, TANK_EMPTY.</li></ul></details>
+</div>
+</section><section class="lab " id="lab7">
+<span class="pill">Take-home &middot; 20 min</span><h2 style="margin-top:8px">Lab 7: Deep Sleep and Battery Life</h2><p class="lead">Make the ESP32 sleep between jobs, wake it by timer or button, and calculate how long a battery would last.</p>
+<h3>Circuit</h3><p>Same as Lab 2: push-button on GPIO 4, LED on GPIO 26.</p>
+<table><tr><th>Part</th><th>Part pin</th><th>ESP32 pin</th></tr><tr><td>Push-button</td><td>1.l / 2.l</td><td><code>GPIO 4 / GND</code></td></tr><tr><td>LED + 220 &Omega;</td><td>A / C</td><td><code>GPIO 26 / GND</code></td></tr></table>
+
+<div class="card" style="margin:14px 0">
+  <div id="wk-lab7"></div>
+  <details><summary>No link yet? Build the project yourself in 1 minute</summary>
+  <ol class="steps">
+    <li>Open <a href="https://wokwi.com/projects/new/micropython-esp32" target="_blank" rel="noopener">wokwi.com/projects/new/micropython-esp32</a> (a blank MicroPython ESP32 project).</li>
+    <li>Click the <b>diagram.json</b> tab, select all (Ctrl+A), and paste the <b>diagram.json</b> below. The parts and wires appear.</li>
+    <li>Click the <b>main.py</b> tab, select all, and paste the program.</li>
+    
+    <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
+  </ol>
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code38">Copy</button></div><pre id="code38" data-hl="json">{
+  &quot;version&quot;: 1,
+  &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
+  &quot;editor&quot;: &quot;wokwi&quot;,
+  &quot;parts&quot;: [
+    {
+      &quot;type&quot;: &quot;board-esp32-devkit-c-v4&quot;,
+      &quot;id&quot;: &quot;esp&quot;,
+      &quot;top&quot;: 0,
+      &quot;left&quot;: 0,
+      &quot;attrs&quot;: {
+        &quot;env&quot;: &quot;micropython-20260406-v1.28.0&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-resistor&quot;,
+      &quot;id&quot;: &quot;r1&quot;,
+      &quot;top&quot;: 28,
+      &quot;left&quot;: 140,
+      &quot;rotate&quot;: 0,
+      &quot;attrs&quot;: {
+        &quot;value&quot;: &quot;220&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-led&quot;,
+      &quot;id&quot;: &quot;led1&quot;,
+      &quot;top&quot;: -40,
+      &quot;left&quot;: 230,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;red&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-pushbutton&quot;,
+      &quot;id&quot;: &quot;btn1&quot;,
+      &quot;top&quot;: 120,
+      &quot;left&quot;: 200,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;green&quot;
+      }
+    }
+  ],
+  &quot;connections&quot;: [
+    [
+      &quot;esp:TX&quot;,
+      &quot;$serialMonitor:RX&quot;,
+      &quot;&quot;,
+      []
+    ],
+    [
+      &quot;esp:RX&quot;,
+      &quot;$serialMonitor:TX&quot;,
+      &quot;&quot;,
+      []
+    ],
+    [
+      &quot;esp:26&quot;,
+      &quot;r1:1&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;r1:2&quot;,
+      &quot;led1:A&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;led1:C&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;btn1:1.l&quot;,
+      &quot;esp:4&quot;,
+      &quot;blue&quot;,
+      []
+    ],
+    [
+      &quot;btn1:2.l&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ]
+  ],
+  &quot;dependencies&quot;: {}
+}</pre></div>
+  
+  </details>
+</div>
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code39">Copy</button></div><pre id="code39" data-hl="py"># Lab 7 (take-home): deep sleep and battery life
+# The ESP32 wakes up, does a little work, then sleeps for 10 s.
+# Press the button to wake it early.
+import machine, esp32, time
+from machine import Pin
+
+led = Pin(26, Pin.OUT)
+btn = Pin(4, Pin.IN, Pin.PULL_UP)
+rtc = machine.RTC()
+
+# Normal variables live in RAM, which is switched off in deep sleep.
+# RTC memory stays powered, so the boot counter survives.
+mem = rtc.memory()
+boots = int(mem) + 1 if mem else 1
+rtc.memory(str(boots))
+
+if machine.reset_cause() == machine.DEEPSLEEP_RESET:
+    why = {machine.EXT0_WAKE: &quot;button&quot;, machine.TIMER_WAKE: &quot;timer&quot;}.get(machine.wake_reason(), &quot;other&quot;)
+    print(&quot;Woke up from deep sleep (&quot;, why, &quot;) - boot number&quot;, boots)
+else:
+    print(&quot;Power-on boot - boot number&quot;, boots)
+
+# The &#x27;work&#x27;: pretend to read a sensor and send the value (about 0.6 s awake)
+for _ in range(3):
+    led.on(); time.sleep_ms(100)
+    led.off(); time.sleep_ms(100)
+print(&quot;Work done. Deep sleep for 10 s (or press the button)...&quot;)
+
+esp32.wake_on_ext0(pin=btn, level=esp32.WAKEUP_ALL_LOW)   # wake when GPIO 4 goes low
+time.sleep_ms(50)                                         # let the message finish printing
+machine.deepsleep(10000)                                  # never returns: the chip restarts on wake</pre></div>
+<div class="note">Watch the Serial Monitor: every 10 s the board <b>restarts from the top</b>, because deep sleep switches off the CPU and RAM. Only the RTC (real-time clock) block stays awake, so <code>rtc.memory()</code> is the place to keep the boot counter.</div>
+<h3>Why it matters: the battery sum</h3>
+<table><tr><th></th><th>Current</th><th>Time per minute</th></tr>
+<tr><td>Awake (CPU + Wi-Fi)</td><td>about 80 mA</td><td>2 s</td></tr><tr><td>Deep sleep</td><td>about 10 &micro;A</td><td>58 s</td></tr></table>
+<div class="try"><h4>Try this</h4><ol>
+<li>Average current = (80 &times; 2 + 0.01 &times; 58) / 60 = ? mA. How many days would a 2000 mAh battery last? And if the board never slept?</li>
+<li>Change the sleep time to 60 s. How does the battery life change?</li>
+<li>Why does the boot counter start again from 1 when you press Stop and then Start in Wokwi?</li>
+<li>Combine with Lab 5: wake, publish one MQTT reading, sleep. Why is Wi-Fi connection time now the biggest cost? <span class="pill deep">Deep dive</span></li>
+</ol></div>
+<details><summary>Answers</summary><ol><li>About 2.7 mA &rarr; about 750 hours &asymp; <b>31 days</b>. Always awake at 80 mA: about 25 hours, so sleeping gives about 30&times; the battery life.</li>
+<li>About 0.68 mA average &rarr; roughly 4 months.</li><li>Stop/Start is a power cut: RTC memory is lost too. Only a deep-sleep wake keeps it.</li>
+<li>Joining Wi-Fi takes 1&ndash;3 s at full current, much longer than sending one message. Products keep connections short, or use low-power radios such as BLE or LoRa.</li></ol></details>
+</section><section class="lab " id="lab8">
+<span class="pill">Take-home &middot; 25 min</span><h2 style="margin-top:8px">Lab 8: Live Weather from the Web (HTTP + JSON)</h2><p class="lead">Call a real web API from the ESP32, parse the JSON reply, and show Hassan&rsquo;s live weather next to your own sensor.</p>
+<h3>Circuit</h3><p>Same as Lab 4: DHT22 on GPIO 15, OLED on I&sup2;C (GPIO 21 / 22).</p>
+
+<div class="card" style="margin:14px 0">
+  <div id="wk-lab8"></div>
+  <details><summary>No link yet? Build the project yourself in 1 minute</summary>
+  <ol class="steps">
+    <li>Open <a href="https://wokwi.com/projects/new/micropython-esp32" target="_blank" rel="noopener">wokwi.com/projects/new/micropython-esp32</a> (a blank MicroPython ESP32 project).</li>
+    <li>Click the <b>diagram.json</b> tab, select all (Ctrl+A), and paste the <b>diagram.json</b> below. The parts and wires appear.</li>
+    <li>Click the <b>main.py</b> tab, select all, and paste the program.</li>
+    <li>Add a second file: click the small <b>&#9662;</b> arrow next to the file tabs &rarr; <b>New file</b>, name it <code>ssd1306.py</code>, and paste the <b>ssd1306.py</b> code below.</li>
+    <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
+  </ol>
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code40">Copy</button></div><pre id="code40" data-hl="json">{
+  &quot;version&quot;: 1,
+  &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
+  &quot;editor&quot;: &quot;wokwi&quot;,
+  &quot;parts&quot;: [
+    {
+      &quot;type&quot;: &quot;board-esp32-devkit-c-v4&quot;,
+      &quot;id&quot;: &quot;esp&quot;,
+      &quot;top&quot;: 0,
+      &quot;left&quot;: 0,
+      &quot;attrs&quot;: {
+        &quot;env&quot;: &quot;micropython-20260406-v1.28.0&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-resistor&quot;,
+      &quot;id&quot;: &quot;r1&quot;,
+      &quot;top&quot;: 28,
+      &quot;left&quot;: 170,
+      &quot;rotate&quot;: 0,
+      &quot;attrs&quot;: {
+        &quot;value&quot;: &quot;220&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-led&quot;,
+      &quot;id&quot;: &quot;led1&quot;,
+      &quot;top&quot;: -40,
+      &quot;left&quot;: 260,
+      &quot;attrs&quot;: {
+        &quot;color&quot;: &quot;red&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;wokwi-dht22&quot;,
+      &quot;id&quot;: &quot;dht1&quot;,
+      &quot;top&quot;: -110,
+      &quot;left&quot;: -130,
+      &quot;attrs&quot;: {
+        &quot;temperature&quot;: &quot;28&quot;,
+        &quot;humidity&quot;: &quot;60&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;board-ssd1306&quot;,
+      &quot;id&quot;: &quot;oled1&quot;,
+      &quot;top&quot;: 120,
+      &quot;left&quot;: 220,
+      &quot;attrs&quot;: {
+        &quot;i2cAddress&quot;: &quot;0x3c&quot;
+      }
+    }
+  ],
+  &quot;connections&quot;: [
+    [
+      &quot;esp:TX&quot;,
+      &quot;$serialMonitor:RX&quot;,
+      &quot;&quot;,
+      []
+    ],
+    [
+      &quot;esp:RX&quot;,
+      &quot;$serialMonitor:TX&quot;,
+      &quot;&quot;,
+      []
+    ],
+    [
+      &quot;esp:26&quot;,
+      &quot;r1:1&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;r1:2&quot;,
+      &quot;led1:A&quot;,
+      &quot;orange&quot;,
+      []
+    ],
+    [
+      &quot;led1:C&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;dht1:VCC&quot;,
+      &quot;esp:3V3&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;dht1:GND&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;dht1:SDA&quot;,
+      &quot;esp:15&quot;,
+      &quot;green&quot;,
+      []
+    ],
+    [
+      &quot;oled1:VCC&quot;,
+      &quot;esp:3V3&quot;,
+      &quot;red&quot;,
+      []
+    ],
+    [
+      &quot;oled1:GND&quot;,
+      &quot;esp:GND.2&quot;,
+      &quot;black&quot;,
+      []
+    ],
+    [
+      &quot;oled1:SDA&quot;,
+      &quot;esp:21&quot;,
+      &quot;blue&quot;,
+      []
+    ],
+    [
+      &quot;oled1:SCL&quot;,
+      &quot;esp:22&quot;,
+      &quot;purple&quot;,
+      []
+    ]
+  ],
+  &quot;dependencies&quot;: {}
+}</pre></div>
+  <div class="codebox"><div class="bar"><b>ssd1306.py</b><button class="btn small" data-copy="code41">Copy</button></div><pre id="code41" data-hl="py"># MicroPython SSD1306 OLED driver, I2C and SPI interfaces
+
+from micropython import const
+import framebuf
+
+
+# register definitions
+SET_CONTRAST = const(0x81)
+SET_ENTIRE_ON = const(0xA4)
+SET_NORM_INV = const(0xA6)
+SET_DISP = const(0xAE)
+SET_MEM_ADDR = const(0x20)
+SET_COL_ADDR = const(0x21)
+SET_PAGE_ADDR = const(0x22)
+SET_DISP_START_LINE = const(0x40)
+SET_SEG_REMAP = const(0xA0)
+SET_MUX_RATIO = const(0xA8)
+SET_IREF_SELECT = const(0xAD)
+SET_COM_OUT_DIR = const(0xC0)
+SET_DISP_OFFSET = const(0xD3)
+SET_COM_PIN_CFG = const(0xDA)
+SET_DISP_CLK_DIV = const(0xD5)
+SET_PRECHARGE = const(0xD9)
+SET_VCOM_DESEL = const(0xDB)
+SET_CHARGE_PUMP = const(0x8D)
+
+
+# Subclassing FrameBuffer provides support for graphics primitives
+# http://docs.micropython.org/en/latest/pyboard/library/framebuf.html
+class SSD1306(framebuf.FrameBuffer):
+    def __init__(self, width, height, external_vcc):
+        self.width = width
+        self.height = height
+        self.external_vcc = external_vcc
+        self.pages = self.height // 8
+        self.buffer = bytearray(self.pages * self.width)
+        super().__init__(self.buffer, self.width, self.height, framebuf.MONO_VLSB)
+        self.init_display()
+
+    def init_display(self):
+        for cmd in (
+            SET_DISP,  # display off
+            # address setting
+            SET_MEM_ADDR,
+            0x00,  # horizontal
+            # resolution and layout
+            SET_DISP_START_LINE,  # start at line 0
+            SET_SEG_REMAP | 0x01,  # column addr 127 mapped to SEG0
+            SET_MUX_RATIO,
+            self.height - 1,
+            SET_COM_OUT_DIR | 0x08,  # scan from COM[N] to COM0
+            SET_DISP_OFFSET,
+            0x00,
+            SET_COM_PIN_CFG,
+            0x02 if self.width &gt; 2 * self.height else 0x12,
+            # timing and driving scheme
+            SET_DISP_CLK_DIV,
+            0x80,
+            SET_PRECHARGE,
+            0x22 if self.external_vcc else 0xF1,
+            SET_VCOM_DESEL,
+            0x30,  # 0.83*Vcc
+            # display
+            SET_CONTRAST,
+            0xFF,  # maximum
+            SET_ENTIRE_ON,  # output follows RAM contents
+            SET_NORM_INV,  # not inverted
+            SET_IREF_SELECT,
+            0x30,  # enable internal IREF during display on
+            # charge pump
+            SET_CHARGE_PUMP,
+            0x10 if self.external_vcc else 0x14,
+            SET_DISP | 0x01,  # display on
+        ):  # on
+            self.write_cmd(cmd)
+        self.fill(0)
+        self.show()
+
+    def poweroff(self):
+        self.write_cmd(SET_DISP)
+
+    def poweron(self):
+        self.write_cmd(SET_DISP | 0x01)
+
+    def contrast(self, contrast):
+        self.write_cmd(SET_CONTRAST)
+        self.write_cmd(contrast)
+
+    def invert(self, invert):
+        self.write_cmd(SET_NORM_INV | (invert &amp; 1))
+
+    def rotate(self, rotate):
+        self.write_cmd(SET_COM_OUT_DIR | ((rotate &amp; 1) &lt;&lt; 3))
+        self.write_cmd(SET_SEG_REMAP | (rotate &amp; 1))
+
+    def show(self):
+        x0 = 0
+        x1 = self.width - 1
+        if self.width != 128:
+            # narrow displays use centred columns
+            col_offset = (128 - self.width) // 2
+            x0 += col_offset
+            x1 += col_offset
+        self.write_cmd(SET_COL_ADDR)
+        self.write_cmd(x0)
+        self.write_cmd(x1)
+        self.write_cmd(SET_PAGE_ADDR)
+        self.write_cmd(0)
+        self.write_cmd(self.pages - 1)
+        self.write_data(self.buffer)
+
+
+class SSD1306_I2C(SSD1306):
+    def __init__(self, width, height, i2c, addr=0x3C, external_vcc=False):
+        self.i2c = i2c
+        self.addr = addr
+        self.temp = bytearray(2)
+        self.write_list = [b&quot;\x40&quot;, None]  # Co=0, D/C#=1
+        super().__init__(width, height, external_vcc)
+
+    def write_cmd(self, cmd):
+        self.temp[0] = 0x80  # Co=1, D/C#=0
+        self.temp[1] = cmd
+        self.i2c.writeto(self.addr, self.temp)
+
+    def write_data(self, buf):
+        self.write_list[1] = buf
+        self.i2c.writevto(self.addr, self.write_list)
+
+
+class SSD1306_SPI(SSD1306):
+    def __init__(self, width, height, spi, dc, res, cs, external_vcc=False):
+        self.rate = 10 * 1024 * 1024
+        dc.init(dc.OUT, value=0)
+        res.init(res.OUT, value=0)
+        cs.init(cs.OUT, value=1)
+        self.spi = spi
+        self.dc = dc
+        self.res = res
+        self.cs = cs
+        import time
+
+        self.res(1)
+        time.sleep_ms(1)
+        self.res(0)
+        time.sleep_ms(10)
+        self.res(1)
+        super().__init__(width, height, external_vcc)
+
+    def write_cmd(self, cmd):
+        self.spi.init(baudrate=self.rate, polarity=0, phase=0)
+        self.cs(1)
+        self.dc(0)
+        self.cs(0)
+        self.spi.write(bytearray([cmd]))
+        self.cs(1)
+
+    def write_data(self, buf):
+        self.spi.init(baudrate=self.rate, polarity=0, phase=0)
+        self.cs(1)
+        self.dc(1)
+        self.cs(0)
+        self.spi.write(buf)
+        self.cs(1)</pre></div>
+  </details>
+</div>
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code42">Copy</button></div><pre id="code42" data-hl="py"># Lab 8 (take-home): live Hassan weather from the web, next to your own sensor
 # The ESP32 makes an HTTP request, parses the JSON reply, and shows it on the OLED.
 import network, time, dht
 from machine import Pin, SoftI2C
@@ -4981,7 +5785,7 @@ while True:
 </ol></div>
 <details><summary>Have a real ESP32 board? Serve a web page from it</summary>
 <p>On a real board the ESP32 can also be a <b>web server</b>: open its IP address on your phone and switch the LED from a page it serves. (In Wokwi this needs the paid Private IoT Gateway, so it is not part of the free lab.) Edit the Wi-Fi name and password, run it with Thonny, and watch the IP address in the shell.</p>
-<div class="codebox"><div class="bar"><b>webserver_realboard.py</b><button class="btn small" data-copy="code38">Copy</button></div><pre id="code38" data-hl="py"># Lab 8 extra - REAL ESP32 BOARD ONLY (not the free Wokwi plan):
+<div class="codebox"><div class="bar"><b>webserver_realboard.py</b><button class="btn small" data-copy="code43">Copy</button></div><pre id="code43" data-hl="py"># Lab 8 extra - REAL ESP32 BOARD ONLY (not the free Wokwi plan):
 # serve a web page from the ESP32 and switch the LED from your phone.
 # Put your phone and the board on the same Wi-Fi, then open http://&lt;board IP&gt;/
 import network, socket, time
@@ -5031,7 +5835,7 @@ while True:
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code39">Copy</button></div><pre id="code39" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code44">Copy</button></div><pre id="code44" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -5092,7 +5896,7 @@ while True:
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code40">Copy</button></div><pre id="code40" data-hl="py"># ECE 1 - See the bits: UART frames on a logic analyzer
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code45">Copy</button></div><pre id="code45" data-hl="py"># ECE 1 - See the bits: UART frames on a logic analyzer
 # UART1 transmits on GPIO 17. A wire loops it back to UART2&#x27;s receiver on GPIO 16.
 # Logic analyzer channel D0 watches the TX line.
 from machine import UART
@@ -5143,7 +5947,7 @@ print(&quot;Done. Stop the simulation to download the waveform (wokwi-logic.vcd)
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code41">Copy</button></div><pre id="code41" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code46">Copy</button></div><pre id="code46" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -5241,7 +6045,7 @@ print(&quot;Done. Stop the simulation to download the waveform (wokwi-logic.vcd)
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code42">Copy</button></div><pre id="code42" data-hl="py"># ECE 2 - Sampling and aliasing
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code47">Copy</button></div><pre id="code47" data-hl="py"># ECE 2 - Sampling and aliasing
 # The PWM hardware makes a square wave on GPIO 26 (the LED shows it).
 # A wire carries it to GPIO 35, which the CPU samples at a fixed rate FS.
 from machine import Pin, PWM
@@ -5295,7 +6099,7 @@ print(&quot;First 80 samples:&quot;, &quot;&quot;.join(&quot;#&quot; if s else &
     
     <li>Press the green <b>&#9654;</b> button. MicroPython starts at once (no build queue). Output appears in the Serial Monitor at the bottom.</li>
   </ol>
-  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code43">Copy</button></div><pre id="code43" data-hl="json">{
+  <div class="codebox"><div class="bar"><b>diagram.json</b><button class="btn small" data-copy="code48">Copy</button></div><pre id="code48" data-hl="json">{
   &quot;version&quot;: 1,
   &quot;author&quot;: &quot;Dr. Sathisha R N - NAVKIS Embedded Systems Workshop&quot;,
   &quot;editor&quot;: &quot;wokwi&quot;,
@@ -5354,7 +6158,7 @@ print(&quot;First 80 samples:&quot;, &quot;&quot;.join(&quot;#&quot; if s else &
   
   </details>
 </div>
-<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code44">Copy</button></div><pre id="code44" data-hl="py"># ECE 3 - Digital filters: moving average (FIR) vs exponential (IIR)
+<div class="codebox"><div class="bar"><b>main.py</b><button class="btn small" data-copy="code49">Copy</button></div><pre id="code49" data-hl="py"># ECE 3 - Digital filters: moving average (FIR) vs exponential (IIR)
 # The potentiometer on GPIO 34 gives a clean signal. We add noise in software,
 # then compare two classic filters from your DSP course.
 from machine import Pin, ADC
