@@ -33,8 +33,7 @@ window.WS = {
 
   /* Optional: Google Apps Script web-app URL that records quiz scores
      (code in README.md). Leave "" to keep scores on the student's screen only. */
-  quizScriptUrl: "https://script.google.com/macros/s/AKfycbwAKT6McknA5514-id2jgesp4jOA728hpx6Diw-GBpfv8vE9N1rhrt6hTLrNGXmzcUDiw/exec",
-
+quizScriptUrl: "https://script.google.com/macros/s/AKfycbwAKT6McknA5514-id2jgesp4jOA728hpx6Diw-GBpfv8vE9N1rhrt6hTLrNGXmzcUDiw/exec",
   /* Certificates (certificates.html) */
   hodName: "Dr. Manjunath D V",
   hodTitle: "Professor & HOD, Dept. of ECE",
