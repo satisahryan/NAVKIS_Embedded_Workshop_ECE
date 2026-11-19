@@ -79,6 +79,11 @@ The *Answers* column is a string of 1s and 0s, one per question (1 = correct). O
 
 You can also put a Google Form link in `feedbackFormUrl`. A **Give feedback** button then appears after the quiz.
 
+### Feedback (students and organizers)
+`feedback.html` has two forms: **students** (ratings, confidence before/after, best labs, suggestions) and **organizers / faculty** (curriculum and SDC alignment, logistics, follow-up interest, testimonial with permission to quote). Answers go to the same Apps Script as the quiz, into the tabs **Student feedback** and **Organizer feedback**. Menu **Workshop → Feedback summary** writes averages and counts for your report. A **Print paper forms** button gives a clean printout for anyone who prefers paper.
+
+If you deployed the Apps Script before this file was updated: paste the new `grading/gradebook.gs`, Save, then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The URL does not change.
+
 ## The MQTT dashboard
 
 - Students' ESP32s publish to `navkis/ews2026/<name>/data` and listen on `navkis/ews2026/<name>/led`.

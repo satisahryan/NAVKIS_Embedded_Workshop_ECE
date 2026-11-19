@@ -2450,7 +2450,7 @@ var qrcode = function() {
 (function () {
   const PAGES = [
     ["index.html", "Home"], ["slides.html", "Slides"], ["labs.html", "Labs"],
-    ["dashboard.html", "Live Dashboard"], ["quiz.html", "Quiz"], ["handout.html", "Handout"]
+    ["dashboard.html", "Live Dashboard"], ["quiz.html", "Quiz"], ["feedback.html", "Feedback"], ["handout.html", "Handout"]
   ];
   const here = location.pathname.split("/").pop() || "index.html";
 
@@ -2593,7 +2593,7 @@ function finish(){
   const msg = pct >= 80 ? 'Excellent — you think like a firmware engineer!' : pct >= 50 ? 'Good work. Revisit the labs you found tricky.' : 'Good start. Try the labs again at home in Wokwi.';
   app.innerHTML = `<div class="kicker">Well done, ${name.replace(/</g,'&lt;')}</div><div class="score">${score}/${Q.length}</div>
   <p style="text-align:center;font-size:18px">${msg}</p><p id="sub" style="text-align:center;color:var(--mute)"></p>
-  ${WS.feedbackFormUrl ? `<p style="text-align:center"><a class="btn amber" href="${WS.feedbackFormUrl}" target="_blank" rel="noopener">Give feedback</a></p>` : ''}`;
+  <p style="text-align:center"><a class="btn amber" href="feedback.html">Give feedback (2 minutes)</a></p>`;
   if (WS.quizScriptUrl) {
     document.getElementById('sub').textContent = 'Sending your score…';
     fetch(WS.quizScriptUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
